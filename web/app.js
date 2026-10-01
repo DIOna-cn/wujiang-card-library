@@ -1080,8 +1080,9 @@
           <input id="syBranch" value="${esc(cfg.branch ?? 'main')}"></div>
         <div class="field"><label>同步范围</label>
           <select id="syMode">
-            <option value="data"${cfg.mode === 'data' ? ' selected' : ''}>仅数据（约 0.1 MB）</option>
+            <option value="all"${cfg.mode === 'all' ? ' selected' : ''}>全部，不含 .shap 工程档（约 153 MB，推荐）</option>
             <option value="data+art"${cfg.mode === 'data+art' ? ' selected' : ''}>数据+立绘+原画+语音（约 72 MB）</option>
+            <option value="data"${cfg.mode === 'data' ? ' selected' : ''}>仅数据（约 0.1 MB）</option>
             <option value="full"${cfg.mode === 'full' ? ' selected' : ''}>全部，含 .shap（约 208 MB）</option>
           </select>
         </div>

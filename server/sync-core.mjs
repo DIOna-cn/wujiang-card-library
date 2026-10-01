@@ -45,12 +45,19 @@ const RE_AUDIO = /\.(mp3|wav|ogg|m4a)$/i;
 const RE_IMAGE = /\.(png|jpe?g|webp|gif)$/i;
 const RE_MD = /\.md$/i;
 
-/** 三种范围，对应 --mode */
+/**
+ * 同步范围。默认是 `all`：除 .shap 工程档以外的一切（带技能卡图也在里面）。
+ * 只有 `full` 才把 .shap 也带上。
+ */
 export const MODES = {
   data: ['data', 'legacy', 'doc'],
   'data+art': ['data', 'legacy', 'doc', 'portrait', 'art', 'audio', 'treasure', 'extra'],
+  all: ['data', 'legacy', 'doc', 'portrait', 'art', 'audio', 'treasure', 'extra', 'cardfull', 'other'],
   full: ['data', 'legacy', 'doc', 'portrait', 'art', 'audio', 'treasure', 'extra', 'cardfull', 'shap', 'other'],
 };
+
+/** 默认范围：除 .shap 外的一切 */
+export const DEFAULT_MODE = 'all';
 
 /** 素材目录里的文件属于哪一类；返回 null 表示不进仓库 */
 export function assetKind(rel) {
@@ -312,8 +319,8 @@ export async function aheadBehind(work, branch = 'main') {
  * ------------------------------------------------------------------ */
 
 /** 当前工作副本里应该有哪些文件（相对路径 → 绝对源路径） */
-export async function buildWorkSet({ project, assets, mode = 'data+art', projectName = '' }) {
-  const ok = new Set(MODES[mode] ?? MODES['data+art']);
+export async function buildWorkSet({ project, assets, mode = DEFAULT_MODE, projectName = '' }) {
+  const ok = new Set(MODES[mode] ?? MODES[DEFAULT_MODE]);
   const set = new Map();
 
   // 项目文件
@@ -336,7 +343,7 @@ export async function buildWorkSet({ project, assets, mode = 'data+art', project
  * 把项目按 workSet 同步到工作副本。
  * 会删掉「工作副本里有、workSet 里没有」的文件（git 那边需要真实的删除）。
  */
-export async function syncToWork({ work, workSet, mode = 'data+art' }) {
+export async function syncToWork({ work, workSet, mode = DEFAULT_MODE }) {
   const copied = [];
   const removed = [];
 
@@ -385,11 +392,19 @@ export async function syncToWork({ work, workSet, mode = 'data+art' }) {
 }
 
 /**
- * 把工作副本里的「数据文件」写回项目。
+ * 把工作副本里的内容写回项目。
+ *
+ * 范围：「素材」下的一切（.shap 工程档除外）+ 数据文件 —— 图片也要，
+ * 否则新拿到项目的人点「下载」只得到 武将.json，一张图都没有。
+ * 项目代码（web/、server/、README 等）**不**写回：那会盖掉本地还没推上去的代码改动。
  * 只新增和更新，绝不删除 —— 远端少了个武将文件夹也不能让本地那份消失。
  */
 export async function writeDataBack({ work, project, assets }) {
-  const files = (await walk(work)).filter((f) => isDataFile(f.rel) && !f.rel.startsWith('.git/'));
+  const files = (await walk(work)).filter((f) =>
+    !f.rel.startsWith('.git/') &&
+    !RE_SHAP.test(f.rel) &&
+    (f.rel.startsWith('素材/') || isDataFile(f.rel))
+  );
   const updated = [];
   const added = [];
   const same = [];
@@ -403,7 +418,11 @@ export async function writeDataBack({ work, project, assets }) {
     const existed = fs.existsSync(dest);
     let changed = true;
     if (existed) {
-      try { changed = (await sha256(f.abs)) !== (await sha256(dest)); } catch { changed = true; }
+      // 先比大小再算哈希：写回范围现在含图片，几百 MB 全量哈希太慢
+      try {
+        const [a, b] = [await fsp.stat(dest), await fsp.stat(f.abs)];
+        changed = a.size !== b.size || (await sha256(f.abs)) !== (await sha256(dest));
+      } catch { changed = true; }
     }
     if (!changed) { same.push(f.rel); continue; }
 
@@ -417,7 +436,12 @@ export async function writeDataBack({ work, project, assets }) {
 
 /** 本地数据与工作副本的差异（不联网，纯比内容） */
 export async function diffLocalVsWork({ work, project, assets }) {
-  const files = (await walk(work)).filter((f) => isDataFile(f.rel) && !f.rel.startsWith('.git/'));
+  // 范围和 writeDataBack 保持一致，否则「差在哪」会和实际会不会写回对不上
+  const files = (await walk(work)).filter((f) =>
+    !f.rel.startsWith('.git/') &&
+    !RE_SHAP.test(f.rel) &&
+    (f.rel.startsWith('素材/') || isDataFile(f.rel))
+  );
   const diffs = [];
   for (const f of files) {
     let localSrc;
@@ -426,7 +450,10 @@ export async function diffLocalVsWork({ work, project, assets }) {
     else continue;
     if (!fs.existsSync(localSrc)) { diffs.push({ rel: f.rel, kind: '仅在副本' }); continue; }
     try {
-      if ((await sha256(localSrc)) !== (await sha256(f.abs))) diffs.push({ rel: f.rel, kind: '内容不同' });
+      const [a, b] = [await fsp.stat(localSrc), await fsp.stat(f.abs)];
+      if (a.size !== b.size || (await sha256(localSrc)) !== (await sha256(f.abs))) {
+        diffs.push({ rel: f.rel, kind: '内容不同' });
+      }
     } catch { diffs.push({ rel: f.rel, kind: '读取失败' }); }
   }
   return diffs;
@@ -458,7 +485,7 @@ export function hasConflict(msg) {
  * @returns 结果摘要，不抛异常（失败信息放在 error 里给网页显示）
  */
 export async function pushAll({
-  project, assets, work, mode = 'data+art', remote, branch = 'main',
+  project, assets, work, mode = DEFAULT_MODE, remote, branch = 'main',
   proxy = '', projectName = '', message = '', onStep = () => {},
 }) {
   const steps = [];
@@ -575,7 +602,7 @@ export async function pushAll({
  * 下载：远端 → 工作副本 → 数据写回项目
  */
 export async function pullAll({
-  project, assets, work, mode = 'data+art', remote, branch = 'main',
+  project, assets, work, mode = DEFAULT_MODE, remote, branch = 'main',
   proxy = '', projectName = '', onStep = () => {},
 }) {
   const steps = [];
@@ -671,7 +698,7 @@ export async function pullAll({
  * 用 `git ls-remote`（只取 ref，不下载对象），比 `git fetch` 快很多，适合轮询。
  */
 export async function checkStatus({
-  project, assets, work, mode = 'data+art', remote, branch = 'main',
+  project, assets, work, mode = DEFAULT_MODE, remote, branch = 'main',
   proxy = '', projectName = '',
 }) {
   // 只配 remote / 代理，不建目录、不动历史 —— 轮询很频繁，不能每次都造工作副本

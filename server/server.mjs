@@ -118,7 +118,7 @@ const DEFAULT_REMOTE = process.env.WUJIANG_REMOTE || 'https://github.com/DIOna-c
 const syncConfig = {
   remote: DEFAULT_REMOTE,
   branch: 'main',
-  mode: 'data+art',
+  mode: syncCore.DEFAULT_MODE,
   work: syncCore.defaultWorkDir(ROOT, PROJECT_NAME),
   proxy: '',               // 启动时自动从系统代理读；读不到就空着
   autoCheckMs: 60000,      // 网页多久轮询一次
