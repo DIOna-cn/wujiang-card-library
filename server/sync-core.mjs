@@ -443,8 +443,18 @@ export function defaultWorkDir(project, projectName) {
   return path.join(os.homedir(), `.${name}-git`);
 }
 
+/** push 被拒，是因为远端有本地还没有的提交（两边分叉了） */
+export function isRejectedPush(msg) {
+  return /non-fast-forward|fetch first|\[rejected\]|failed to push some refs|cannot lock ref/i.test(msg || '');
+}
+
+/** 合并时撞上了冲突 */
+export function hasConflict(msg) {
+  return /CONFLICT|Automatic merge failed|Merge conflict|needs merge/i.test(msg || '');
+}
+
 /**
- * 上传：项目 → 工作副本 → commit → push
+ * 上传：项目 → 工作副本 → commit → push（远端领先时自动合并再推）
  * @returns 结果摘要，不抛异常（失败信息放在 error 里给网页显示）
  */
 export async function pushAll({
@@ -477,13 +487,63 @@ export async function pushAll({
     committed = true;
   }
 
+  // 合并前的 HEAD，用来列出「这次从远端带回来了哪些提交」
+  const before = await localHead(work);
+
   step('推送到远端…');
-  const p = await git(['push', '-q', '-u', 'origin', branch], { cwd: work, proxy, timeoutMs: 300000 });
+  let p = await git(['push', '-q', '-u', 'origin', branch], { cwd: work, proxy, timeoutMs: 300000 });
+  let merged = false;
+  let incoming = [];
+  let back = null;
+
+  if (!p.ok && isRejectedPush(p.message)) {
+    // 远端有别人推的内容，两边分叉了。直接推会被拒，硬推会顶掉对方的武将，
+    // 所以先把对方那份合进来、再推上去 —— 这样双方的武将都留下。
+    step('远端有别人的新内容，先合并…');
+    const m = await git(['pull', '--no-rebase', '--no-edit', 'origin', branch], {
+      cwd: work, proxy, timeoutMs: 300000,
+    });
+
+    if (!m.ok) {
+      // git 把 CONFLICT 打在 stdout、把 fetch 进度打在 stderr，
+      // 只看其中一个就分不清「是冲突」还是「只是网络出错」
+      const mergeOut = `${m.message}\n${m.stdout}`;
+      if (hasConflict(mergeOut)) {
+        // 别把工作副本丢在半合并状态：那样下次点任何按钮都是坏的。
+        // abort 会退回合并前的提交，也就是本地那份改动，一点都不会丢。
+        await git(['merge', '--abort'], { cwd: work });
+        return {
+          ok: false, conflict: true,
+          error: '和远端撞车了：你们动了同一个文件的同一处，需要手工选一份。',
+          hint: '你本地的改动都还在，没有被丢掉，可以再点上传重试。',
+          detail: mergeOut.split('\n').filter((l) => /CONFLICT|error:/i.test(l)).slice(0, 8),
+          steps, copied: copied.length, removed: removed.length, committed,
+        };
+      }
+      return {
+        ok: false,
+        error: '合并失败：' + m.message,
+        steps, copied: copied.length, removed: removed.length, committed,
+      };
+    }
+    merged = true;
+
+    const log = await git(['log', '--oneline', `${before}..HEAD`], { cwd: work });
+    incoming = log.stdout.trim().split('\n').filter(Boolean).slice(0, 20);
+
+    // 对方新建的武将是合并之后才出现在工作副本里的，写回项目才算真的「两边都有」
+    step('把合并来的数据写回本地…');
+    back = await writeDataBack({ work, project, assets });
+
+    step('再次推送到远端…');
+    p = await git(['push', '-q', '-u', 'origin', branch], { cwd: work, proxy, timeoutMs: 300000 });
+  }
+
   if (!p.ok) {
     // 连接类报错不一定是真失败：核对远端 ref 再下结论
-    const head = await localHead(work);
+    const headNow = await localHead(work);
     const rh = await remoteHead({ work, branch, proxy });
-    if (rh.ok && rh.sha === head) {
+    if (rh.ok && rh.sha === headNow) {
       step('推送时报了错，但远端已经是本地这个提交 —— 实际已成功');
     } else {
       return {
@@ -502,8 +562,11 @@ export async function pushAll({
 
   step('完成');
   return {
-    ok: true, steps,
+    ok: true, op: 'upload', steps,
     copied: copied.length, removed: removed.length, changes, committed,
+    merged, incoming,
+    added: back ? back.added.length : 0,
+    updated: back ? back.updated.length : 0,
     localHead: head, remoteHead: head, ahead, behind,
   };
 }
@@ -551,9 +614,23 @@ export async function pullAll({
     }
     r = await git(['reset', '--hard', 'FETCH_HEAD'], { cwd: work });
   } else {
-    r = await git(['pull', '--ff-only', 'origin', branch], { cwd: work, proxy, timeoutMs: 300000 });
+    // 用 merge 而不是 --ff-only：本地可能已经有自己提交好、但还没推上去的东西，
+    // 这时 --ff-only 会直接失败，两边都同步不了，人就卡住了。
+    // 双方改的不是同一个文件时 git 会自己合好；没有分叉时它就等同于快进。
+    r = await git(['pull', '--no-rebase', '--no-edit', 'origin', branch], { cwd: work, proxy, timeoutMs: 300000 });
   }
   if (!r.ok) {
+    const mergeOut = `${r.message}\n${r.stdout}`;
+    if (hasConflict(mergeOut)) {
+      await git(['merge', '--abort'], { cwd: work });
+      return {
+        ok: false, conflict: true,
+        error: '和远端撞车了：你们动了同一个文件的同一处，需要手工选一份。',
+        hint: '你本地的改动都还在，没有被丢掉，可以再点下载重试。',
+        detail: mergeOut.split('\n').filter((l) => /CONFLICT|error:/i.test(l)).slice(0, 8),
+        steps,
+      };
+    }
     return {
       ok: false,
       error: '拉取失败：' + r.message,
@@ -576,11 +653,16 @@ export async function pullAll({
 
   const diffs = await diffLocalVsWork({ work, project, assets });
 
+  // 合并之后本地可能反过来领先远端（自己那个提交还没推上去），
+  // 网页得把这件事说出来，否则用户会以为已经同步完了
+  const { ahead } = await aheadBehind(work, branch);
+
   step('完成');
   return {
-    ok: true, steps, changed, commits, before, after,
+    ok: true, op: 'download', steps, changed, commits, before, after,
     updated: back.updated, added: back.added, same: back.same,
     localDiff: diffs,
+    ahead, needPush: ahead > 0,
   };
 }
 

@@ -978,10 +978,27 @@
       if (wasBusy && !r.busy && state.syncBusySelf) {
         state.syncBusySelf = false;
         await loadAll();
-        if (r.error) toast(r.error, 'err');
-        else if (r.op === '' && r.result?.ok) {
-          if (r.result.updated?.length || r.result.added?.length) {
-            toast(`已下载，更新 ${r.result.updated?.length ?? 0} 个、新增 ${r.result.added?.length ?? 0} 个数据文件`, 'ok');
+        if (r.error) {
+          // 冲突这类错误，该怎么办写在 hint 里，别只报错不给出路
+          const hint = r.result?.hint ? `（${r.result.hint}）` : '';
+          toast(r.error + hint, 'err');
+        } else if (r.result?.ok && r.result.op === 'download') {
+          const up = r.result.updated?.length ?? 0;
+          const add = r.result.added?.length ?? 0;
+          let msg = `已下载：更新 ${up} 个、新增 ${add} 个数据文件`;
+          // 本地自己那份还没推上去，说清楚，否则会以为两边都齐了
+          if (r.result.needPush) {
+            msg += `；本地还有 ${r.result.ahead} 个提交没上传，点「上传」推上去`;
+          }
+          toast(msg, 'ok');
+        } else if (r.result?.ok && r.result.op === 'upload') {
+          if (r.result.merged) {
+            const n = r.result.incoming?.length ?? 0;
+            const g = r.result.added ?? 0;
+            toast(
+              `对方也有新内容：已合并 ${n} 个提交、带回 ${g} 个武将，两边的改动都在，并已推上去`,
+              'ok'
+            );
           } else if (r.result.copied) {
             toast(`已上传（${r.result.copied} 个文件变动）`, 'ok');
           } else {
