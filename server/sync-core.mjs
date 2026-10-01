@@ -221,7 +221,33 @@ export async function isRepo(work) {
   return fs.existsSync(path.join(work, '.git'));
 }
 
-/** 确保工作副本存在并配好（remote / 代理 / 行尾） */
+/**
+ * 让工作副本「能跟 origin 说话」，但不改它的历史。
+ *
+ * 用 git -C 跑而不是先建目录：目录不存在时 git 会自己 new 一个，
+ * 也就不会在 checkStatus（60 秒轮询一次）里凭空造出上百 MB 的工作副本。
+ * 只在真正要上传/下载时才走 ensureRepo。
+ */
+export async function ensureRemoteOnly({ work, remote, branch = 'main', proxy = '' }) {
+  if (!(await isRepo(work))) return { ready: false, created: false };
+
+  // remote 可能变了（用户在网页上填了另一个仓库）
+  if (remote) {
+    const cur = (await git(['remote', 'get-url', 'origin'], { cwd: work })).stdout.trim();
+    if (cur !== remote) {
+      if (cur) await git(['remote', 'set-url', 'origin', remote], { cwd: work });
+      else await git(['remote', 'add', 'origin', remote], { cwd: work });
+    }
+  }
+
+  if (proxy) {
+    await git(['config', '--local', 'http.proxy', proxy], { cwd: work });
+    await git(['config', '--local', 'https.proxy', proxy], { cwd: work });
+  }
+  return { ready: true, created: false };
+}
+
+/** 确保工作副本存在并配好（remote / 代理 / 行尾）—— 上传、下载时用 */
 export async function ensureRepo({ work, remote, branch = 'main', proxy = '', projectName = '' }) {
   await fsp.mkdir(work, { recursive: true });
   const created = !(await isRepo(work));
@@ -506,9 +532,27 @@ export async function pullAll({
   }
 
   const before = await localHead(work);
+  const freshWork = !before;   // 全新工作副本：还没有任何本地提交
 
   step('从远端拉取…');
-  const r = await git(['pull', '--ff-only', 'origin', branch], { cwd: work, proxy, timeoutMs: 300000 });
+  let r;
+  if (freshWork) {
+    // 空仓库直接 `git pull` 会因为"没有当前分支的上游"或不知道往哪合并而失败，
+    // 所以先 fetch 再对齐到远端。这一步只动工作副本，不碰项目目录。
+    step('工作副本是空的，先取回远端内容…');
+    const f = await git(['fetch', '--quiet', 'origin', branch], { cwd: work, proxy, timeoutMs: 300000 });
+    if (!f.ok) {
+      return {
+        ok: false,
+        error: '首次拉取失败：' + f.message,
+        hint: proxy ? '确认代理软件在运行。' : 'git 不读系统代理，可显式指定代理后重试。',
+        steps,
+      };
+    }
+    r = await git(['reset', '--hard', 'FETCH_HEAD'], { cwd: work });
+  } else {
+    r = await git(['pull', '--ff-only', 'origin', branch], { cwd: work, proxy, timeoutMs: 300000 });
+  }
   if (!r.ok) {
     return {
       ok: false,
@@ -548,14 +592,28 @@ export async function checkStatus({
   project, assets, work, mode = 'data+art', remote, branch = 'main',
   proxy = '', projectName = '',
 }) {
-  await ensureRepo({ work, remote, branch, proxy, projectName });
+  // 只配 remote / 代理，不建目录、不动历史 —— 轮询很频繁，不能每次都造工作副本
+  const { ready } = await ensureRemoteOnly({ work, remote, branch, proxy });
+
+  if (!ready) {
+    return {
+      ok: true, reachable: true,
+      initialized: false,
+      localHead: '', remoteHead: '',
+      hasRemoteUpdate: false, hasLocalChanges: false,
+      localDiffCount: 0, localDiffSample: [],
+      ahead: 0, behind: 0,
+      work,
+      hint: '还没建 git 工作副本。点「上传」或「下载」时会自动建（约 72 MB），之后这里就能显示同步状态了。',
+    };
+  }
 
   const local = await localHead(work);
   const rh = await remoteHead({ work, branch, proxy });
 
   if (!rh.ok) {
     return {
-      ok: false, reachable: false, error: rh.message,
+      ok: false, reachable: false, initialized: true, error: rh.message,
       localHead: local.slice(0, 7), remoteHead: '',
       hasRemoteUpdate: false, hasLocalChanges: false, ahead: 0, behind: 0,
     };
@@ -566,10 +624,10 @@ export async function checkStatus({
   const { ahead, behind } = await aheadBehind(work, branch);
 
   return {
-    ok: true, reachable: true,
+    ok: true, reachable: true, initialized: true,
     localHead: local.slice(0, 7),
     remoteHead: rh.sha.slice(0, 7),
-    // 远端和我本地 HEAD 不同 → 远端有我不知道的东西
+    // 空仓库时本地 head 是空，此时远端有东西也算"有新内容"
     hasRemoteUpdate: !!rh.sha && rh.sha !== local,
     // 本地数据文件与工作副本不同 → 有没上传的改动
     hasLocalChanges: diffs.length > 0,

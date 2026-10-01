@@ -875,6 +875,11 @@
     } else if (!st) {
       cls = '';
       txt = '还没检查过';
+    } else if (st.initialized === false) {
+      // 工作副本还没建（clone 出来的新副本就是这样）。点上传/下载会建，约 72 MB。
+      cls = '';
+      txt = '还没建同步副本';
+      sub = '点上传或下载即可';
     } else if (!st.reachable) {
       cls = 'err';
       txt = '连不上远端';
