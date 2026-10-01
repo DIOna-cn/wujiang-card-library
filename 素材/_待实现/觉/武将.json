@@ -1,0 +1,60 @@
+{
+  "schema": 1,
+  "id": "_待实现/觉",
+  "dir": "_待实现/觉",
+  "name": "觉",
+  "title": "读心妖怪",
+  "kingdom": "jin",
+  "hp": 3,
+  "maxHp": 3,
+  "shield": 0,
+  "gender": "",
+  "quality": "epic",
+  "legendId": "TH 005",
+  "quote": "",
+  "copyright": "™&© 2026 上海爱丽丝幻乐团 .Illustration: unkown",
+  "isLord": false,
+  "origin": "东方Project",
+  "tags": [
+    "娱乐",
+    "减益"
+  ],
+  "note": "觉 女 蜀势力 称号：第三只眼\n描述.txt 写作「讀心」；卡面技能名为「读心」。\n本目录 .shap 内的 title 仍是旧版卡名「第三只眼」，此处按卡面与文件夹名取「读心妖怪」。",
+  "cards": [
+    {
+      "name": "",
+      "image": "立绘.jpg",
+      "cardImage": "新UI.读心妖怪.觉.png",
+      "legendId": "TH 005",
+      "skills": [
+        {
+          "name": "读心",
+          "desc": "其他角色的出牌阶段开始时，你可以弃置1张手牌并查看其手牌，然后你选择一项操作。若于出牌阶段内首次操作符合你选择的一项，终止此结算并令其失去1点体力，若可能，获得当前结算中的牌，触发该效果后，结束当前阶段。"
+        }
+      ],
+      "derived": [],
+      "note": "描述.txt 写作「讀心」；卡面技能名为「读心」。\n本目录 .shap 内的 title 仍是旧版卡名「第三只眼」，此处按卡面与文件夹名取「读心妖怪」。"
+    }
+  ],
+  "extras": [],
+  "gallery": [
+    {
+      "file": "新UI.读心妖怪.觉.png",
+      "kind": "card",
+      "size": 4826623
+    },
+    {
+      "file": "立绘​.jpg",
+      "kind": "portrait",
+      "size": 316308
+    }
+  ],
+  "sounds": [],
+  "source": {
+    "shap": "读心妖怪.觉.shap",
+    "descTxt": "描述.txt",
+    "importedAt": "2026-10-01T09:50:31.551Z",
+    "importer": "scripts/import.mjs"
+  },
+  "updatedAt": "2026-10-01T14:22:46.632Z"
+}

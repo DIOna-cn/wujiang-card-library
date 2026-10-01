@@ -1,0 +1,154 @@
+{
+  "schema": 1,
+  "id": "维什戴尔",
+  "dir": "维什戴尔",
+  "name": "维什戴尔",
+  "title": "绝对主角",
+  "kingdom": "qun",
+  "hp": 4,
+  "maxHp": 4,
+  "shield": 0,
+  "gender": "女",
+  "quality": "epic",
+  "legendId": "WEI 027",
+  "quote": "",
+  "copyright": "™&© 2026 游卡桌游 .Illustration: ShapByAI",
+  "isLord": false,
+  "origin": "明日方舟",
+  "tags": [
+    "生存",
+    "输出",
+    "爆发"
+  ],
+  "note": "",
+  "cards": [
+    {
+      "name": "",
+      "image": "立绘_维什戴尔_2.png",
+      "cardImage": "新UI.绝对主角.维什戴尔.png",
+      "legendId": "WEI 027",
+      "skills": [
+        {
+          "name": "余震",
+          "desc": "<b>锁定技</b>，每回合限一次，当你对一名角色造成伤害后，若你于本回合内已对其造成过伤害，你对其造成X点伤害（X为此伤害值的一半，向上取整）。"
+        },
+        {
+          "name": "魂影",
+          "desc": "<b>锁定技</b>，其他角色使用的单体<b>锦囊牌</b>不能指定你为目标。\n出牌阶段开始时，你可以视为对一名其他角色造成过1点伤害。\n当你受到伤害后，直到你的下个准备阶段，此技能失效。"
+        },
+        {
+          "name": "黎明",
+          "desc": "<b>限定技</b>，出牌阶段，若你已发动过至少两次<b>【魂影】</b>的出牌阶段效果，你可以将牌库顶六张牌置于你的武将牌上。\n你可以将武将牌上的这些牌如手牌般使用或打出，均视为<b>【杀】</b>，若如此做，你<b>翻面</b>。\n你以此法使用的<b>【杀】</b>造成的伤害+1；无法被响应；无距离限制；此<b>【杀】</b>触发<b>【余震】</b>时，额外伤害改为对距离该角色1以内的所有角色生效。"
+        }
+      ],
+      "derived": []
+    }
+  ],
+  "extras": [],
+  "gallery": [
+    {
+      "file": "作战中1_cn_025.mp3",
+      "kind": "audio",
+      "size": 194394
+    },
+    {
+      "file": "作战中1_cn_025.wav",
+      "kind": "audio",
+      "size": 422658
+    },
+    {
+      "file": "作战中2_cn_026.mp3",
+      "kind": "audio",
+      "size": 199618
+    },
+    {
+      "file": "作战中2_cn_026.wav",
+      "kind": "audio",
+      "size": 435266
+    },
+    {
+      "file": "作战中3_cn_027.mp3",
+      "kind": "audio",
+      "size": 285300
+    },
+    {
+      "file": "作战中3_cn_027.wav",
+      "kind": "audio",
+      "size": 622626
+    },
+    {
+      "file": "作战中4_cn_028.mp3",
+      "kind": "audio",
+      "size": 202753
+    },
+    {
+      "file": "作战中4_cn_028.wav",
+      "kind": "audio",
+      "size": 441624
+    },
+    {
+      "file": "新UI.绝对主角.维什戴尔.png",
+      "kind": "card",
+      "size": 5381982
+    },
+    {
+      "file": "立绘_维什戴尔_2.png",
+      "kind": "portrait",
+      "size": 5291384
+    },
+    {
+      "file": "行动开始_cn_020.mp3",
+      "kind": "audio",
+      "size": 205888
+    },
+    {
+      "file": "行动开始_cn_020.wav",
+      "kind": "audio",
+      "size": 447490
+    }
+  ],
+  "sounds": [
+    {
+      "name": "作战中1_cn",
+      "files": [
+        "作战中1_cn_025.mp3",
+        "作战中1_cn_025.wav"
+      ]
+    },
+    {
+      "name": "作战中2_cn",
+      "files": [
+        "作战中2_cn_026.mp3",
+        "作战中2_cn_026.wav"
+      ]
+    },
+    {
+      "name": "作战中3_cn",
+      "files": [
+        "作战中3_cn_027.mp3",
+        "作战中3_cn_027.wav"
+      ]
+    },
+    {
+      "name": "作战中4_cn",
+      "files": [
+        "作战中4_cn_028.mp3",
+        "作战中4_cn_028.wav"
+      ]
+    },
+    {
+      "name": "行动开始_cn",
+      "files": [
+        "行动开始_cn_020.mp3",
+        "行动开始_cn_020.wav"
+      ]
+    }
+  ],
+  "source": {
+    "shap": "绝对主角.维什戴尔.shap",
+    "descTxt": "描述.txt",
+    "importedAt": "2026-10-01T09:50:32.181Z",
+    "importer": "scripts/import.mjs"
+  },
+  "updatedAt": "2026-10-01T14:54:13.946Z"
+}

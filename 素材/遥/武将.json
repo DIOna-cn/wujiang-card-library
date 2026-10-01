@@ -1,0 +1,130 @@
+{
+  "schema": 1,
+  "id": "遥",
+  "dir": "遥",
+  "name": "遥",
+  "title": "夏末游鳞",
+  "kingdom": "qun",
+  "hp": 3,
+  "maxHp": 3,
+  "shield": 0,
+  "gender": "女",
+  "quality": "epic",
+  "legendId": "ARK 003",
+  "quote": "",
+  "copyright": "™&© 2026 鹰角网络 .Illustration: 温泉瓜",
+  "isLord": false,
+  "origin": "明日方舟",
+  "tags": [
+    "增益"
+  ],
+  "note": "",
+  "cards": [
+    {
+      "name": "",
+      "image": "立绘.png",
+      "cardImage": "新UI.夏末游鳞.遥.png",
+      "legendId": "ARK 003",
+      "skills": [
+        {
+          "name": "浮光",
+          "desc": "回合开始时，你可以令你攻击范围内的至多两名没有<b>“浮泡”</b>标记的其他干员各获得<b>“浮泡”</b>标记。\n锁定技，当一名拥有<b>“浮泡”</b>标记的干员受到伤害后，其回复1点体力，然后移去其<b>“浮泡”</b>标记。"
+        },
+        {
+          "name": "幽萤",
+          "desc": "出牌阶段限一次，你可以弃置一张手牌，若如此做，直到你的下个准备阶段开始前，当一名干员的<b>“浮泡”</b>标记被移去时，你对其距离1以内的所有其他干员各造成1点伤害。"
+        }
+      ],
+      "derived": []
+    }
+  ],
+  "extras": [],
+  "gallery": [
+    {
+      "file": "作战中1 (1).mp3",
+      "kind": "audio",
+      "size": 261267
+    },
+    {
+      "file": "作战中2 (1).mp3",
+      "kind": "audio",
+      "size": 133790
+    },
+    {
+      "file": "作战中3 (1).mp3",
+      "kind": "audio",
+      "size": 141104
+    },
+    {
+      "file": "作战中4 (1).mp3",
+      "kind": "audio",
+      "size": 204843
+    },
+    {
+      "file": "新UI.夏末游鳞.遥.png",
+      "kind": "card",
+      "size": 5768943
+    },
+    {
+      "file": "浮泡.png",
+      "kind": "icon",
+      "size": 66880
+    },
+    {
+      "file": "游鱼.png",
+      "kind": "icon",
+      "size": 45338
+    },
+    {
+      "file": "立绘.png",
+      "kind": "portrait",
+      "size": 860102
+    },
+    {
+      "file": "选中干员2 (1).mp3",
+      "kind": "audio",
+      "size": 157822
+    },
+    {
+      "file": "部署1 (1).mp3",
+      "kind": "audio",
+      "size": 184990
+    },
+    {
+      "file": "部署2 (1).mp3",
+      "kind": "audio",
+      "size": 118116
+    }
+  ],
+  "sounds": [
+    {
+      "name": "作战中",
+      "files": [
+        "作战中1 (1).mp3",
+        "作战中2 (1).mp3",
+        "作战中3 (1).mp3",
+        "作战中4 (1).mp3"
+      ]
+    },
+    {
+      "name": "选中干员",
+      "files": [
+        "选中干员2 (1).mp3"
+      ]
+    },
+    {
+      "name": "部署",
+      "files": [
+        "部署1 (1).mp3",
+        "部署2 (1).mp3"
+      ]
+    }
+  ],
+  "source": {
+    "shap": "夏末游鳞.遥.shap",
+    "descTxt": "描述.txt",
+    "importedAt": "2026-10-01T09:50:32.446Z",
+    "importer": "scripts/import.mjs"
+  },
+  "updatedAt": "2026-10-01T14:51:30.681Z"
+}

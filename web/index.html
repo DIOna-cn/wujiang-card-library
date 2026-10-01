@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>武将牌库</title>
+<link rel="stylesheet" href="/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🀄</text></svg>">
+</head>
+<body>
+
+<!-- ============================ 侧栏 ============================ -->
+<aside class="sidebar" id="sidebar">
+  <div class="brand">
+    <div class="brand-mark">牌</div>
+    <div class="brand-text">
+      <h1 id="siteTitle">武将牌库</h1>
+      <p id="siteSubtitle">素材文件夹中的武将一览</p>
+    </div>
+  </div>
+
+  <div class="side-section">
+    <div class="side-head">
+      <span>原作</span>
+      <button class="icon-btn" id="btnEditTags" title="管理原作与标签">＋</button>
+    </div>
+    <div class="tag-tree" id="originTree"></div>
+  </div>
+
+  <div class="side-section">
+    <div class="side-head"><span>标签</span></div>
+    <div class="tag-tree" id="tagTree"></div>
+  </div>
+
+  <div class="side-section">
+    <div class="side-head"><span>势力</span></div>
+    <div class="tag-tree" id="kingdomTree"></div>
+  </div>
+
+  <div class="side-foot">
+    <div class="stat" id="statLine">—</div>
+    <button class="ghost-btn" id="btnReload" title="重新扫描素材文件夹">↻ 重新扫描</button>
+  </div>
+</aside>
+
+<!-- ============================ 主区 ============================ -->
+<main class="main">
+  <header class="toolbar">
+    <button class="icon-btn only-narrow" id="btnMenu" title="菜单">☰</button>
+    <div class="search">
+      <input id="search" type="search" placeholder="搜索武将名 / 称号 / 技能名 / 编号…" autocomplete="off">
+      <span class="search-hint" id="searchHint"></span>
+    </div>
+    <div class="toolbar-right">
+      <label class="switch" title="只看还没有描述文件 / 没有卡图的武将">
+        <input type="checkbox" id="onlyIncomplete"><span>只看待补</span>
+      </label>
+      <div class="seg" role="group" aria-label="视图">
+        <button data-view="grid" class="active">卡图</button>
+        <button data-view="list">列表</button>
+      </div>
+      <button class="primary-btn" id="btnNew">＋ 新建武将</button>
+    </div>
+  </header>
+
+  <div class="active-filters" id="activeFilters"></div>
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty" hidden></div>
+</main>
+
+<!-- ============================ 详情抽屉 ============================ -->
+<div class="drawer-mask" id="drawerMask" hidden></div>
+<section class="drawer" id="drawer" hidden aria-label="武将详情">
+  <div class="drawer-head">
+    <div class="drawer-title">
+      <h2 id="dName">—</h2>
+      <span class="chip" id="dTitle"></span>
+      <span class="chip kingdom" id="dKingdom"></span>
+    </div>
+    <div class="drawer-actions">
+      <button class="ghost-btn" id="btnOpenFolder" hidden>在文件夹中打开</button>
+      <button class="ghost-btn" id="btnCardEdit">编辑</button>
+      <button class="ghost-btn danger" id="btnCardDelete">删除</button>
+      <button class="icon-btn" id="btnCloseDrawer" title="关闭">✕</button>
+    </div>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+  <div class="drawer-foot">
+    <span class="save-state" id="saveState"></span>
+    <div class="foot-actions">
+      <button class="ghost-btn" id="btnRevert" disabled>放弃修改</button>
+      <button class="primary-btn" id="btnSave" disabled>保存</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ 新建 / 标签 弹窗 ============================ -->
+<div class="modal-mask" id="modalMask" hidden>
+  <div class="modal" id="modal"></div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script src="/app.js"></script>
+</body>
+</html>

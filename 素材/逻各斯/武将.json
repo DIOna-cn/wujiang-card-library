@@ -1,0 +1,121 @@
+{
+  "schema": 1,
+  "id": "逻各斯",
+  "dir": "逻各斯",
+  "name": "逻各斯",
+  "title": "女妖之主",
+  "kingdom": "qun",
+  "hp": 3,
+  "maxHp": 3,
+  "shield": 0,
+  "gender": "女",
+  "quality": "epic",
+  "legendId": "ARK 005",
+  "quote": "凡有疑问，必有解答。凡有规则，必能解析。",
+  "copyright": "™&© 2026 鹰角网络 .Illustration: Skade",
+  "isLord": false,
+  "origin": "明日方舟",
+  "tags": [
+    "减益",
+    "辅助"
+  ],
+  "note": "",
+  "cards": [
+    {
+      "name": "",
+      "image": "立绘.png",
+      "cardImage": "新UI.女妖之主.逻各斯.png",
+      "legendId": "ARK 005",
+      "skills": [
+        {
+          "name": "提喻",
+          "desc": "每回合限两次，你可以弃置一张红色牌或黑色牌并选择一名角色，然后依弃置牌的颜色执行对应效果：\n红色：本局游戏中，你计算与其的距离+1，其摸一张牌。\n黑色：本局游戏中，你计算与其的距离-1；直到你的下个结束阶段，其随机一张未受此技能影响的手牌不能被使用、打出或弃置。"
+        },
+        {
+          "name": "殁亡",
+          "desc": "<b>锁定技</b>，当你的攻击范围内的一名其他角色的体力值降至1时，其失去1点体力。"
+        }
+      ],
+      "derived": []
+    }
+  ],
+  "extras": [],
+  "gallery": [
+    {
+      "file": "作战中1.mp3",
+      "kind": "audio",
+      "size": 143194
+    },
+    {
+      "file": "作战中2.mp3",
+      "kind": "audio",
+      "size": 136924
+    },
+    {
+      "file": "作战中3.mp3",
+      "kind": "audio",
+      "size": 114981
+    },
+    {
+      "file": "作战中4.mp3",
+      "kind": "audio",
+      "size": 140059
+    },
+    {
+      "file": "新UI.女妖之主.逻各斯.png",
+      "kind": "card",
+      "size": 5064912
+    },
+    {
+      "file": "立绘.png",
+      "kind": "portrait",
+      "size": 777236
+    },
+    {
+      "file": "选中干员2.mp3",
+      "kind": "audio",
+      "size": 46018
+    },
+    {
+      "file": "部署1.mp3",
+      "kind": "audio",
+      "size": 54377
+    },
+    {
+      "file": "部署2.mp3",
+      "kind": "audio",
+      "size": 79455
+    }
+  ],
+  "sounds": [
+    {
+      "name": "作战中",
+      "files": [
+        "作战中1.mp3",
+        "作战中2.mp3",
+        "作战中3.mp3",
+        "作战中4.mp3"
+      ]
+    },
+    {
+      "name": "选中干员",
+      "files": [
+        "选中干员2.mp3"
+      ]
+    },
+    {
+      "name": "部署",
+      "files": [
+        "部署1.mp3",
+        "部署2.mp3"
+      ]
+    }
+  ],
+  "source": {
+    "shap": "女妖之主.逻各斯.shap",
+    "descTxt": "描述.txt",
+    "importedAt": "2026-10-01T09:50:32.379Z",
+    "importer": "scripts/import.mjs"
+  },
+  "updatedAt": "2026-10-01T14:51:12.134Z"
+}

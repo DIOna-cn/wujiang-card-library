@@ -1,0 +1,61 @@
+{
+  "schema": 1,
+  "id": "琪露诺",
+  "dir": "琪露诺",
+  "name": "琪露诺",
+  "title": "湖上的冰精",
+  "kingdom": "wei",
+  "hp": 3,
+  "maxHp": 3,
+  "shield": 0,
+  "gender": "",
+  "quality": "epic",
+  "legendId": "TH 250",
+  "quote": "",
+  "copyright": "™&© 2026 上海爱丽丝幻乐团 .Illustration: ShapByAI",
+  "isLord": false,
+  "origin": "东方Project",
+  "tags": [
+    "爆发",
+    "减益",
+    "生存",
+    "增益",
+    "过牌"
+  ],
+  "note": "",
+  "cards": [
+    {
+      "name": "",
+      "image": "",
+      "cardImage": "新UI.湖上的冰精.琪露诺.png",
+      "legendId": "TH 250",
+      "skills": [
+        {
+          "name": "智慧",
+          "desc": "在你的回合内/外，所有其他角色/你每失去1张牌，你抽1张牌。每名角色每回合首次触发该效果时，你对其造成1点伤害。"
+        },
+        {
+          "name": "冰精",
+          "desc": "<b>锁定技</b>，你造成的伤害视为冰属性伤害。你可以将三张牌当无距离次数限制的冰<b>【杀】</b>使用或打出。"
+        }
+      ],
+      "derived": []
+    }
+  ],
+  "extras": [],
+  "gallery": [
+    {
+      "file": "新UI.湖上的冰精.琪露诺.png",
+      "kind": "card",
+      "size": 3040839
+    }
+  ],
+  "sounds": [],
+  "source": {
+    "shap": "湖上的冰精.琪露诺.shap",
+    "descTxt": "",
+    "importedAt": "2026-10-01T09:50:31.676Z",
+    "importer": "scripts/import.mjs"
+  },
+  "updatedAt": "2026-10-01T14:48:22.643Z"
+}

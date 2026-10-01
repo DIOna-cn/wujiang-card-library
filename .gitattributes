@@ -1,0 +1,26 @@
+# 行尾转换必须全部关掉。
+#
+# 为什么这条是硬要求：
+# Windows 上 Git for Windows 默认 core.autocrlf=true，提交时会把工作区的
+# CRLF 转成 LF 存进仓库。于是「仓库里的字节」和「本地文件的字节」不是同一份。
+# 这个项目里所有东西都是按字节有意义的 ——
+#
+#   · 素材/<武将>/武将.json   是被网页直接读写的，字节变了内容就对不上
+#   · 那份 .sync-manifest.json 记录的是每个文件的 sha256，靠它判断"哪些文件变了"
+#   · 图片 / 语音 / .shap 全是二进制
+#
+# 一旦发生行尾转换，清单里的 sha256 就会和仓库里的实际字节不符，
+# 表现是「每次同步都认为文件变了」，而 git status 却是干净的 —— 极难排查。
+#
+# `* -text` 表示：对任何文件都不做行尾归一化，原样存取。
+* -text
+
+# 明确一下这些是二进制，别让 git 去猜
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.webp  binary
+*.gif   binary
+*.mp3   binary
+*.wav   binary
+*.shap  binary

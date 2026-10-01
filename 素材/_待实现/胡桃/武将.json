@@ -1,0 +1,67 @@
+{
+  "schema": 1,
+  "id": "_待实现/胡桃",
+  "dir": "_待实现/胡桃",
+  "name": "胡桃",
+  "title": "往生堂主",
+  "kingdom": "shu",
+  "hp": 3,
+  "maxHp": 3,
+  "shield": 0,
+  "gender": "",
+  "quality": "epic",
+  "legendId": "GEN 001",
+  "quote": "",
+  "copyright": "™&© 2026 米哈游天命 .Illustration: K3nzoTeruya",
+  "isLord": false,
+  "origin": "原神",
+  "tags": [
+    "生存",
+    "过牌"
+  ],
+  "note": "（无头验证写入：验证78353）",
+  "cards": [
+    {
+      "name": "",
+      "image": "立绘.png",
+      "cardImage": "新UI.往生堂主.胡桃.png",
+      "legendId": "GEN 001",
+      "skills": [
+        {
+          "name": "往世",
+          "desc": "<b>锁定技</b>，一名没有<b>“魂”</b>标记的其他死亡时，你恢复1点体力，获得1点护甲，令其恢复体力至2点并获得<b>“魂”</b>标记。\n拥有<b>“魂”</b>标记的角色始终跳过所有阶段，视为拥有<b>【幽魂】</b>，其受到伤害时，你摸2张牌。\n一名角色死亡前，你抽2张牌。"
+        },
+        {
+          "name": "来生",
+          "desc": "出牌阶段，你可以弃置3张相同颜色的牌并对一名拥有<b>“魂”</b>标记的武将造成3点火属性伤害。"
+        },
+        {
+          "name": "灵怪",
+          "desc": "每局游戏限三次，每轮开始时，将一名<b>故人</b>插入你的随机一侧。"
+        }
+      ],
+      "derived": []
+    }
+  ],
+  "extras": [],
+  "gallery": [
+    {
+      "file": "新UI.往生堂主.胡桃.png",
+      "kind": "card",
+      "size": 4411290
+    },
+    {
+      "file": "立绘.png",
+      "kind": "portrait",
+      "size": 3107031
+    }
+  ],
+  "sounds": [],
+  "source": {
+    "shap": "往生堂主.胡桃.shap",
+    "descTxt": "",
+    "importedAt": "2026-10-01T09:50:31.538Z",
+    "importer": "scripts/import.mjs"
+  },
+  "updatedAt": "2026-10-01T10:19:38.577Z"
+}

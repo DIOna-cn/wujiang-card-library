@@ -1,0 +1,118 @@
+{
+  "schema": 1,
+  "id": "陈",
+  "dir": "陈",
+  "name": "陈",
+  "title": "龙门警司",
+  "kingdom": "wei",
+  "hp": 4,
+  "maxHp": 4,
+  "shield": 0,
+  "gender": "女",
+  "quality": "epic",
+  "legendId": "ARK 012",
+  "quote": "",
+  "copyright": "™&© 2026 鹰角网络 .Illustration: 伍秋秋秋秋",
+  "isLord": false,
+  "origin": "明日方舟",
+  "tags": [
+    "减益",
+    "卖血",
+    "输出",
+    "爆发"
+  ],
+  "note": "",
+  "cards": [
+    {
+      "name": "",
+      "image": "立绘.png",
+      "cardImage": "新UI.龙门警司.陈.png",
+      "legendId": "ARK 012",
+      "skills": [
+        {
+          "name": "赤霄：绝影",
+          "desc": "你造成或受到伤害时，你可以选择一种你拥有的牌类型并令伤害来源和受伤角色弃置区域内所有该类型牌，否则你下次由牌造成的伤害+1（不可叠加）。"
+        },
+        {
+          "name": "赤霄：拔刀",
+          "desc": "你使用牌指定唯一目标时，你可以令目标对你造成一点伤害并令此牌结算两次。"
+        },
+        {
+          "name": "形照",
+          "desc": "任何阶段结束时，若你于此阶段内失去过牌，你从牌堆中获得每种你手牌中未持有的牌类型各1张，若你以此法获得至少2张牌，你恢复1点体力。"
+        }
+      ],
+      "derived": [
+        "赤霄：拔刀"
+      ]
+    }
+  ],
+  "extras": [],
+  "gallery": [
+    {
+      "file": "作战中1.mp3",
+      "kind": "audio",
+      "size": 13626
+    },
+    {
+      "file": "作战中2.mp3",
+      "kind": "audio",
+      "size": 20941
+    },
+    {
+      "file": "作战中3.mp3",
+      "kind": "audio",
+      "size": 38704
+    },
+    {
+      "file": "作战中4.mp3",
+      "kind": "audio",
+      "size": 30345
+    },
+    {
+      "file": "新UI.龙门警司.陈.png",
+      "kind": "card",
+      "size": 4490881
+    },
+    {
+      "file": "立绘​.png",
+      "kind": "portrait",
+      "size": 600179
+    },
+    {
+      "file": "部署1.mp3",
+      "kind": "audio",
+      "size": 19896
+    },
+    {
+      "file": "部署2.mp3",
+      "kind": "audio",
+      "size": 46018
+    }
+  ],
+  "sounds": [
+    {
+      "name": "作战中",
+      "files": [
+        "作战中1.mp3",
+        "作战中2.mp3",
+        "作战中3.mp3",
+        "作战中4.mp3"
+      ]
+    },
+    {
+      "name": "部署",
+      "files": [
+        "部署1.mp3",
+        "部署2.mp3"
+      ]
+    }
+  ],
+  "source": {
+    "shap": "龙门警司.陈.shap",
+    "descTxt": "描述.txt",
+    "importedAt": "2026-10-01T09:50:32.460Z",
+    "importer": "scripts/import.mjs"
+  },
+  "updatedAt": "2026-10-01T14:54:21.498Z"
+}

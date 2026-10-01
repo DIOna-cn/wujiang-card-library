@@ -1,0 +1,103 @@
+{
+  "schema": 1,
+  "id": "安洁莉娜",
+  "dir": "安洁莉娜",
+  "name": "安洁莉娜",
+  "title": "酸橙的心意",
+  "kingdom": "shu",
+  "hp": 4,
+  "maxHp": 4,
+  "shield": 0,
+  "gender": "女",
+  "quality": "epic",
+  "legendId": "",
+  "quote": "",
+  "copyright": "",
+  "isLord": false,
+  "origin": "明日方舟",
+  "tags": [
+    "过牌",
+    "增益",
+    "减益"
+  ],
+  "note": "语音为素材中随机。",
+  "cards": [
+    {
+      "name": "",
+      "image": "立绘.png",
+      "cardImage": "",
+      "legendId": "",
+      "skills": [
+        {
+          "name": "重力自定义",
+          "desc": "出牌阶段限两次，你可以弃置一张手牌并选择一名角色，直到你下个回合的结束阶段，其非因此技能摸/弃牌时，弃/摸1张牌。"
+        }
+      ],
+      "derived": [],
+      "note": "语音为素材中随机。"
+    }
+  ],
+  "extras": [],
+  "gallery": [
+    {
+      "file": "作战中1.mp3",
+      "kind": "audio",
+      "size": 241414
+    },
+    {
+      "file": "作战中2.mp3",
+      "kind": "audio",
+      "size": 159912
+    },
+    {
+      "file": "作战中3.mp3",
+      "kind": "audio",
+      "size": 175586
+    },
+    {
+      "file": "作战中4.mp3",
+      "kind": "audio",
+      "size": 157822
+    },
+    {
+      "file": "立绘​.png",
+      "kind": "portrait",
+      "size": 539861
+    },
+    {
+      "file": "部署1.mp3",
+      "kind": "audio",
+      "size": 71096
+    },
+    {
+      "file": "部署2.mp3",
+      "kind": "audio",
+      "size": 59602
+    }
+  ],
+  "sounds": [
+    {
+      "name": "作战中",
+      "files": [
+        "作战中1.mp3",
+        "作战中2.mp3",
+        "作战中3.mp3",
+        "作战中4.mp3"
+      ]
+    },
+    {
+      "name": "部署",
+      "files": [
+        "部署1.mp3",
+        "部署2.mp3"
+      ]
+    }
+  ],
+  "source": {
+    "shap": "",
+    "descTxt": "描述.txt",
+    "importedAt": "2026-10-01T09:50:31.601Z",
+    "importer": "scripts/import.mjs"
+  },
+  "updatedAt": "2026-10-01T14:41:16.939Z"
+}

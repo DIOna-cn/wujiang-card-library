@@ -1,0 +1,58 @@
+{
+  "schema": 1,
+  "id": "均2",
+  "dir": "均2",
+  "name": "均",
+  "title": "律法",
+  "kingdom": "jin",
+  "hp": 3,
+  "maxHp": 3,
+  "shield": 0,
+  "gender": "女",
+  "quality": "epic",
+  "legendId": "JIN 001",
+  "quote": "",
+  "copyright": "",
+  "isLord": false,
+  "tags": [
+    "娱乐",
+    "辅助"
+  ],
+  "note": "",
+  "cards": [
+    {
+      "name": "",
+      "image": "立绘.png",
+      "cardImage": "",
+      "legendId": "",
+      "skills": [
+        {
+          "name": "定法",
+          "desc": "持恒技，你的回合开始时，你选择一项，使改效果持续两轮，并使包括自己的每名角色执行，若违反，则失去一点体力：\n摸牌阶段多摸两张牌，回合内不可打出【杀】；\n摸牌阶段少摸一张牌；\n击杀角色时需弃置所有手牌；\n装备装备牌时，需弃一张牌；\n使用锦囊牌时，需弃一张牌；\n弃牌阶段，不可弃置大于三张牌；\n使用【酒】后不可出【杀】；\n累计使用三张锦囊牌时，需直接进入弃牌阶段；\n当你对他人造成伤害时，需弃置一张手牌；\n你使用技能时，需弃置一张牌。"
+        },
+        {
+          "name": "音乐",
+          "desc": "出牌阶段限一次，你可以弃置一张黑色锦囊牌，并视为对 4 名角色使用【铁索连环】。"
+        }
+      ],
+      "derived": []
+    }
+  ],
+  "extras": [],
+  "gallery": [
+    {
+      "file": "立绘.png",
+      "kind": "portrait",
+      "size": 762080
+    }
+  ],
+  "sounds": [],
+  "source": {
+    "shap": "",
+    "descTxt": "描述.txt",
+    "importedAt": "2026-10-01T09:50:31.580Z",
+    "importer": "scripts/import.mjs"
+  },
+  "origin": "明日方舟",
+  "updatedAt": "2026-10-01T14:59:03.594Z"
+}

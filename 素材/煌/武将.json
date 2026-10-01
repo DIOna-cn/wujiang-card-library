@@ -1,0 +1,152 @@
+{
+  "schema": 1,
+  "id": "煌",
+  "dir": "煌",
+  "name": "煌",
+  "title": "燃烧的心",
+  "kingdom": "shu",
+  "hp": 4,
+  "maxHp": 4,
+  "shield": 0,
+  "gender": "女",
+  "quality": "epic",
+  "legendId": "ARK 007",
+  "quote": "",
+  "copyright": "™&© 2026 鹰角网络 .Illustration: 唯",
+  "isLord": false,
+  "origin": "明日方舟",
+  "tags": [
+    "生存",
+    "输出",
+    "爆发",
+    "过牌"
+  ],
+  "note": "语音均为素材内随机。",
+  "cards": [
+    {
+      "name": "",
+      "image": "立绘_2.png",
+      "cardImage": "新UI.燃烧的心.煌.png",
+      "legendId": "ARK 007",
+      "skills": [
+        {
+          "name": "链锯",
+          "desc": "出牌阶段，你可以指定一个其他武将并抽两张牌，若均为红色牌，将其当做1张无距离限制的火【杀】对其使用并再次对同一目标发动此技能；否则你失去1点体力并令此技能本回合失效。"
+        },
+        {
+          "name": "除颤",
+          "desc": "锁定技，每局游戏各限一次，当你的生命值低于2/1时，你的下回合结束前，你的体力值始终保持在2/1点以上。"
+        },
+        {
+          "name": "过载",
+          "desc": "锁定技，你的体力值低于3/2时，你视为拥有【沸腾】/【爆裂】。"
+        },
+        {
+          "name": "沸腾",
+          "desc": "你的抽牌阶段抽牌数+1，你的黑桃牌始终视为红桃。",
+          "derived": true
+        },
+        {
+          "name": "爆裂",
+          "desc": "你的抽牌阶段抽牌数+1，你抽到的前2张黑色牌视为红桃。",
+          "derived": true
+        }
+      ],
+      "derived": [
+        "沸腾",
+        "爆裂"
+      ],
+      "note": "语音均为素材内随机。"
+    }
+  ],
+  "extras": [],
+  "gallery": [
+    {
+      "file": "作战中1.mp3",
+      "kind": "audio",
+      "size": 186035
+    },
+    {
+      "file": "作战中2.mp3",
+      "kind": "audio",
+      "size": 192304
+    },
+    {
+      "file": "作战中3.mp3",
+      "kind": "audio",
+      "size": 156777
+    },
+    {
+      "file": "作战中4.mp3",
+      "kind": "audio",
+      "size": 147373
+    },
+    {
+      "file": "新UI.燃烧的心.煌.png",
+      "kind": "card",
+      "size": 4311583
+    },
+    {
+      "file": "煌​.png",
+      "kind": "icon",
+      "size": 569710
+    },
+    {
+      "file": "立绘_2.png",
+      "kind": "portrait",
+      "size": 3117808
+    },
+    {
+      "file": "选中干员1.mp3",
+      "kind": "audio",
+      "size": 110802
+    },
+    {
+      "file": "选中干员2.mp3",
+      "kind": "audio",
+      "size": 167226
+    },
+    {
+      "file": "部署1.mp3",
+      "kind": "audio",
+      "size": 116026
+    },
+    {
+      "file": "部署2.mp3",
+      "kind": "audio",
+      "size": 93039
+    }
+  ],
+  "sounds": [
+    {
+      "name": "作战中",
+      "files": [
+        "作战中1.mp3",
+        "作战中2.mp3",
+        "作战中3.mp3",
+        "作战中4.mp3"
+      ]
+    },
+    {
+      "name": "选中干员",
+      "files": [
+        "选中干员1.mp3",
+        "选中干员2.mp3"
+      ]
+    },
+    {
+      "name": "部署",
+      "files": [
+        "部署1.mp3",
+        "部署2.mp3"
+      ]
+    }
+  ],
+  "source": {
+    "shap": "燃烧的心.煌.shap",
+    "descTxt": "描述.txt",
+    "importedAt": "2026-10-01T09:50:31.672Z",
+    "importer": "scripts/import.mjs"
+  },
+  "updatedAt": "2026-10-01T14:47:11.310Z"
+}

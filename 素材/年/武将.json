@@ -1,0 +1,61 @@
+{
+  "schema": 1,
+  "id": "年",
+  "dir": "年",
+  "name": "年",
+  "title": "洪炉示岁",
+  "kingdom": "wei",
+  "hp": 4,
+  "maxHp": 4,
+  "shield": 0,
+  "gender": "女",
+  "quality": "epic",
+  "legendId": "",
+  "quote": "",
+  "copyright": "",
+  "isLord": false,
+  "origin": "明日方舟",
+  "tags": [
+    "辅助"
+  ],
+  "note": "",
+  "cards": [
+    {
+      "name": "",
+      "image": "立绘.png",
+      "cardImage": "",
+      "legendId": "",
+      "skills": [
+        {
+          "name": "岁铸",
+          "desc": "锁定技。你的手牌上限+x(x为你装备区的装备数)。"
+        },
+        {
+          "name": "洪炉",
+          "desc": "出牌阶段限一次，你可以选择一项:将自己装备区的一张牌移动到其他角色的装备区(若其已有则替换之，下同)/弃置一张牌，将弃牌区的一张装备牌置入一名角色的装备区/弃置一张:牌，从牌堆抽取一张装备牌。"
+        },
+        {
+          "name": "锻器",
+          "desc": "锁定技。当一名拥有你置入武器的角色使用[杀]时，你选择一项:弃置一张手牌，使此[杀】伤害+1/弃置此武器，摸两张牌。当一名拥有你置入防具的角色成为[杀】的目标时，你选择一项:弃置一张手牌，视为其打出[闪】/弃置此防具，摸两张牌。"
+        }
+      ],
+      "derived": []
+    }
+  ],
+  "extras": [],
+  "gallery": [
+    {
+      "file": "立绘​.png",
+      "kind": "portrait",
+      "size": 375847
+    }
+  ],
+  "sounds": [],
+  "source": {
+    "shap": "",
+    "descTxt": "描述.txt",
+    "importedAt": "2026-10-01T09:50:31.604Z",
+    "importer": "scripts/import.mjs"
+  },
+  "updatedAt": "2026-10-01T14:41:39.502Z"
+}

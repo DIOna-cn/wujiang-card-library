@@ -1,0 +1,126 @@
+{
+  "schema": 1,
+  "id": "藿藿",
+  "dir": "藿藿",
+  "name": "藿藿",
+  "title": "令奉贞凶",
+  "kingdom": "wei",
+  "hp": 3,
+  "maxHp": 3,
+  "shield": 0,
+  "gender": "女",
+  "quality": "epic",
+  "legendId": "ARK 012",
+  "quote": "",
+  "copyright": "™&© 2026 鹰角网络 .Illustration: 伍秋秋秋秋",
+  "isLord": false,
+  "origin": "崩坏星穹铁道",
+  "tags": [
+    "过牌",
+    "辅助",
+    "卖血"
+  ],
+  "note": "",
+  "cards": [
+    {
+      "name": "",
+      "image": "立绘.jpg",
+      "cardImage": "新UI.令奉贞凶.藿藿.png",
+      "legendId": "ARK 012",
+      "skills": [
+        {
+          "name": "护命",
+          "desc": "<b>锁定技</b>，当你受到伤害时，伤害来源需弃置任意张牌，你摸X+1张牌，若X为0，你在此阶段结束时恢复1点体力（X为其弃置的牌数且至多为2）。"
+        },
+        {
+          "name": "尾巴",
+          "desc": "<b>锁定技</b>，每回合限两次，你非因本技能受到伤害时，你可以令一名角色视为对一名角色造成过1点伤害。"
+        },
+        {
+          "name": "凭依",
+          "desc": "游戏开始时，你选择一名其他角色，本局游戏其受到伤害时，伤害来源视为对你造成过1点伤害。"
+        }
+      ],
+      "derived": []
+    }
+  ],
+  "extras": [],
+  "gallery": [
+    {
+      "file": "一技能1.mp3",
+      "kind": "audio",
+      "size": 72236
+    },
+    {
+      "file": "一技能2.mp3",
+      "kind": "audio",
+      "size": 88364
+    },
+    {
+      "file": "一技能3.mp3",
+      "kind": "audio",
+      "size": 79916
+    },
+    {
+      "file": "三技能.mp3",
+      "kind": "audio",
+      "size": 251180
+    },
+    {
+      "file": "二技能 (2).mp3",
+      "kind": "audio",
+      "size": 161324
+    },
+    {
+      "file": "二技能.mp3",
+      "kind": "audio",
+      "size": 85292
+    },
+    {
+      "file": "二技能3.mp3",
+      "kind": "audio",
+      "size": 84524
+    },
+    {
+      "file": "新UI.令奉贞凶.藿藿.png",
+      "kind": "card",
+      "size": 4960959
+    },
+    {
+      "file": "立绘.jpg",
+      "kind": "portrait",
+      "size": 584589
+    }
+  ],
+  "sounds": [
+    {
+      "name": "一技能",
+      "files": [
+        "一技能1.mp3",
+        "一技能2.mp3",
+        "一技能3.mp3"
+      ]
+    },
+    {
+      "name": "三技能",
+      "files": [
+        "三技能.mp3"
+      ]
+    },
+    {
+      "name": "二技能",
+      "files": [
+        "二技能 (2).mp3",
+        "二技能.mp3",
+        "二技能3.mp3"
+      ]
+    }
+  ],
+  "source": {
+    "shap": "令奉贞凶.藿藿.shap",
+    "descTxt": "描述.txt",
+    "importedAt": "2026-10-01T09:50:32.246Z",
+    "importer": "scripts/import.mjs"
+  },
+  "updatedAt": "2026-10-01T14:55:39.637Z"
+}
