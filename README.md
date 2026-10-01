@@ -276,7 +276,72 @@ node scripts\make-share-package.mjs --no-assets  # 只打包程序
 
 ---
 
-## 七、注意事项
+## 七、远程共享（GitHub）
+
+仓库：<https://github.com/DIOna-cn/wujiang-card-library>（公开）
+
+### 你这边：改完推上去
+
+双击 **`推送到GitHub.cmd`**（或跑 `node publish\sync-repo.mjs --push`）。
+
+它会：
+1. 把项目 + 素材同步到 git 工作副本（默认 `%USERPROFILE%\wujiang-card-library`）
+2. 从注册表读**系统代理**并同步进仓库的 git 配置 —— **git 读不到 Windows 系统代理**，`github.com:443` 在这台机器上直连是不通的（`Empty reply from server`），不配代理必失败
+3. 提交、推送，并做一次**行尾自检**
+
+```powershell
+node publish\sync-repo.mjs                      # 只同步，不碰 git
+node publish\sync-repo.mjs --no-git             # 只同步文件
+node publish\sync-repo.mjs --mode data          # 只同步数据（约 0.1 MB）
+node publish\sync-repo.mjs --mode full          # 连 .shap 与带技能卡图一起（约 208 MB）
+node publish\sync-repo.mjs --work D:\somewhere  # 换工作副本位置
+node publish\sync-repo.mjs --push               # 同步 + 提交 + 推送
+```
+
+### 同步范围（默认 `data+art`，约 72 MB）
+
+| 内容 | 大小 | 进仓库 |
+| --- | --- | --- |
+| 武将数据（28 份 `武将.json`） | 0.08 MB | ✅ |
+| 立绘 / 无技能卡图 | 21.08 MB | ✅ |
+| 神宝卡图（辉夜用，页面要显示） | 20.50 MB | ✅ |
+| 原画（2560×2560，改卡素材） | 15.39 MB | ✅ |
+| 语音 | 10.58 MB | ✅ |
+| 备用立绘 / 图标 | 4.32 MB | ✅ |
+| 项目本体（程序 + 文档） | 0.31 MB | ✅ |
+| 带技能卡图 `新UI.*`（19 张） | 81 MB | ✖ 用 `--mode full` 才带 |
+| `.shap` 工程档（18 个） | 55 MB | ✖ 同上 |
+| `.data\原始描述备份\`、`tags.json` | 24 KB | ✅ |
+
+排除的东西：`.data\server.pid`、`.data\回收站\`、`_shots\`（截图）、`publish\`（发布工具本身）。
+
+### 别人怎么用
+
+```powershell
+git clone https://github.com/DIOna-cn/wujiang-card-library.git
+cd wujiang-card-library
+```
+
+然后双击 `启动.cmd` —— **clone 下来的结构本身就是对的**（`素材\` 与 `启动.cmd` 同级），不用再摆。
+以后 `git pull` 就能拿到你的最新进度。
+
+> 仓库里带的是 `data+art` 范围：卡图能看、原画能当改卡素材。缺的是"带技能卡图"和 `.shap` 工程档，
+> 所以那 3 位武将（锏、琪露诺、稀音、藤原妹红）仍会显示占位符 —— 和本地情况一致。
+
+### 两个必须知道的坑（都已处理，但改脚本时别踩回去）
+
+1. **`.gitattributes` 必须是 `* -text`**。Windows 上 Git 默认 `core.autocrlf=true`，提交时会把 CRLF 转成 LF，
+   于是「仓库里的字节」和「本地文件的字节」不是同一份。`武将.json` 和图片全靠字节一致，
+   一旦被转换就会出各种对不上的怪问题，而 `git status` 还是干净的。改完 `.gitattributes` 要
+   `git add --renormalize -A`，并用 `git ls-files --eol` 确认全是 `attr/-text`。
+   （`sync-repo.mjs` 每次推送都会自动做这个自检。）
+2. **`git push` 报连接类错误不一定是真失败**。push 分「传对象」和「更新 ref」两阶段，
+   若服务端已处理完、连接才在读取响应时被切断，git 会报错但推送其实生效了。
+   看到错误先核对远端：`git -C <工作副本> ls-remote origin`，再决定要不要重推。
+
+---
+
+## 八、注意事项
 
 - 服务只监听本机 `127.0.0.1`，局域网内其它设备访问不到（这是有意的：接口能读写磁盘文件，别往外开）。
 - 网页保存是**整体覆盖**该武将的 `武将.json`，不做版本管理；重要内容建议自己另外留一份。
