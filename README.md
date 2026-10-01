@@ -280,23 +280,46 @@ node scripts\make-share-package.mjs --no-assets  # 只打包程序
 
 仓库：<https://github.com/DIOna-cn/wujiang-card-library>（公开）
 
-### 你这边：改完推上去
+### 两个方向，对应两个入口
 
-双击 **`推送到GitHub.cmd`**（或跑 `node publish\sync-repo.mjs --push`）。
+| 方向 | 做什么 | 怎么用 |
+| --- | --- | --- |
+| **上传**（你 → 远端） | 把你在网页上的改动推上去 | 双击 **`推送到GitHub.cmd`** |
+| **下拉**（远端 → 你） | 把别人（或你另一台机器）的改动拉回来 | 双击 **`从GitHub拉取.cmd`** |
 
-它会：
-1. 把项目 + 素材同步到 git 工作副本（默认 `%USERPROFILE%\wujiang-card-library`）
-2. 从注册表读**系统代理**并同步进仓库的 git 配置 —— **git 读不到 Windows 系统代理**，`github.com:443` 在这台机器上直连是不通的（`Empty reply from server`），不配代理必失败
-3. 提交、推送，并做一次**行尾自检**
+**日常就三句话**：
+
+- 改完网页 → 双击 `推送到GitHub.cmd`
+- 换台机器 / 别人改了 → 双击 `从GitHub拉取.cmd`，然后浏览器 F5
+- 两边都改过 → **先推再拉**。直接拉会因为你本地也有改动而失败，这是故意的保护
+
+> 一个必须知道的点：**你的项目目录（`E:\Deepseek\素材`）是数据源**，
+> 远程同步走的是另一个 git 工作副本（默认 `%USERPROFILE%\wujiang-card-library`）。
+> 所以「拉取」不是让 git 直接改写你的项目，而是先从远端更新工作副本，再把**数据文件**
+> （`武将.json` / `tags.json` / 原始描述备份）逐个写回项目 —— 而且**只新增和更新、绝不删除**：
+> 万一远端少了个武将文件夹，你本地那份不会消失。
+
+命令行等价写法：
 
 ```powershell
-node publish\sync-repo.mjs                      # 只同步，不碰 git
-node publish\sync-repo.mjs --no-git             # 只同步文件
+node publish\sync-repo.mjs --push               # 同步 + 提交 + 推送
+node publish\sync-repo.mjs --pull               # 拉取 + 写回项目（安全模式）
+node publish\sync-repo.mjs                      # 只同步到工作副本，不碰 git
 node publish\sync-repo.mjs --mode data          # 只同步数据（约 0.1 MB）
 node publish\sync-repo.mjs --mode full          # 连 .shap 与带技能卡图一起（约 208 MB）
 node publish\sync-repo.mjs --work D:\somewhere  # 换工作副本位置
-node publish\sync-repo.mjs --push               # 同步 + 提交 + 推送
+node publish\sync-repo.mjs --proxy http://127.0.0.1:7892   # 显式指定代理
 ```
+
+### 网络这一环（最容易卡住）
+
+这台机器上 **`github.com` 直连是被打断的**（`Failed to connect` / `Empty reply from server`），
+必须挂着代理走 `127.0.0.1:7892`。而 **git 默认不读 Windows 系统代理**，所以两个 `.cmd` 入口
+每次运行都会从注册表重新读一次系统代理、写进该仓库的 git 配置。
+
+代理软件（hongmoCore）没开时，`--pull` 会先探端口并直接告诉你，不会让你对着超时发呆。
+
+> 网络不通**完全不影响本地使用**：网页、编辑、保存、筛选、看图全是本地的，只有推/拉需要联网。
 
 ### 同步范围（默认 `data+art`，约 72 MB）
 
