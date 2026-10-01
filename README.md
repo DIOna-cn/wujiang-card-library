@@ -228,8 +228,10 @@ node scripts\import.mjs --force    # 全部重生成（★ 会覆盖网页里的
 ### 自检
 
 ```powershell
-node scripts\verify.mjs            # 20 项端到端检查：渲染、图片、编辑保存落盘、搜索筛选
-node scripts\verify-crud.mjs       # 13 项：新建 → 编辑 → 标签 → 删除进回收站（用临时武将，自动清理）
+node scripts\verify.mjs            # 端到端检查：渲染、图片、编辑保存落盘、搜索筛选
+node scripts\verify-crud.mjs       # 新建 → 编辑 → 标签 → 删除进回收站（用临时武将，自动清理）
+node scripts\verify-sync.mjs       # 同步面板：三个按钮、状态、设置弹窗
+node scripts\verify-merge.mjs      # 双方各自新建武将时能自动合并（用本地 bare 仓库，不联网）
 node scripts\check-migration.mjs   # 比对旧描述与新 JSON 的差异
 node scripts\shots.mjs             # 抓界面截图
 ```
