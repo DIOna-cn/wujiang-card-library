@@ -37,6 +37,12 @@
     onlyIncomplete: false,
     view: 'grid',
 
+    /* ---- 远程同步 ---- */
+    sync: null,          // 服务端的同步状态快照
+    syncPolling: false,
+    syncBusySelf: false, // 自己刚点过按钮（用来在完成后只提示一次）
+    syncTimer: 0,
+
     currentId: '',
     editing: false,
     draft: null,
@@ -152,9 +158,12 @@
       state.directoryOrigins = data.directoryOrigins ?? [];
       state.config = data.config ?? state.config;
       state.assets = data.assets ?? '';
+      // 列表接口顺带带了同步状态，省一次请求
+      if (data.sync) state.sync = data.sync;
       applyConfig();
       renderSidebar();
       renderGrid();
+      renderSyncBox();
       if (showToast) toast(`已重新扫描：${state.characters.length} 位武将`, 'ok');
     } catch (err) {
       toast(`读取失败：${err.message}`, 'err');
@@ -823,6 +832,290 @@
       <input class="tag-add-input" id="tagAddInput" list="tagSuggest" placeholder="+ 加标签，回车">
       <datalist id="tagSuggest">${known.map((t) => `<option value="${esc(t)}">`).join('')}</datalist>
     </div>`;
+  }
+
+  /* ================================================================
+     远程同步：上传 / 下载 / 轮询
+     ================================================================ */
+
+  /** 把服务端返回的 sync 状态存下来，并只重画侧栏那一小块（不整页重渲染，免得闪） */
+  function applySync(data) {
+    if (!data) return;
+    state.sync = data;
+    renderSyncBox();
+  }
+
+  function renderSyncBox() {
+    const box = $('#syncBox');
+    if (!box) return;
+    const s = state.sync;
+    if (!s) {
+      box.innerHTML = '<div class="sync-line"><span class="dot"></span><span class="txt">读取同步状态…</span></div>';
+      return;
+    }
+
+    const st = s.status || null;
+    const cfg = s.config || {};
+    const repo = (() => {
+      const m = String(cfg.remote || '').match(/github\.com[/:]([^/]+)\/([^/.]+)/);
+      return m ? { owner: m[1], repo: m[2], url: `https://github.com/${m[1]}/${m[2]}` } : null;
+    })();
+
+    // ---- 状态行 ----
+    let cls = '';
+    let txt = '';
+    let sub = '';
+    if (s.busy) {
+      cls = 'busy';
+      txt = s.op === 'upload' ? '正在上传…' : s.op === 'download' ? '正在下载…' : '正在检查…';
+      sub = s.step || '';
+    } else if (s.error) {
+      cls = 'err';
+      txt = '同步出错';
+    } else if (!st) {
+      cls = '';
+      txt = '还没检查过';
+    } else if (!st.reachable) {
+      cls = 'err';
+      txt = '连不上远端';
+    } else if (st.hasRemoteUpdate) {
+      cls = 'warn';
+      txt = '远端有新内容';
+      sub = `本地 ${st.localHead} → 远端 ${st.remoteHead}`;
+    } else if (st.hasLocalChanges) {
+      cls = 'warn';
+      txt = `有 ${st.localDiffCount} 处改动未上传`;
+    } else {
+      cls = 'ok';
+      txt = '已是最新';
+      sub = st.localHead ? st.localHead : '';
+    }
+
+    const parts = [];
+
+    parts.push(`<div class="sync-line ${cls}">
+      <span class="dot"></span>
+      <span class="txt" title="${esc(txt)}">${esc(txt)}</span>
+      ${sub ? `<span class="sub">${esc(sub)}</span>` : ''}
+    </div>`);
+
+    if (repo) {
+      parts.push(`<div class="sync-repo" title="${esc(cfg.remote)}">
+        <a href="${esc(repo.url)}" target="_blank" rel="noreferrer">${esc(repo.owner)}/${esc(repo.repo)}</a>
+        @${esc(cfg.branch || 'main')}
+      </div>`);
+    }
+
+    // ---- 三个按钮 ----
+    const dis = s.busy ? ' disabled' : '';
+    const hot = (st && st.hasRemoteUpdate && !s.busy) ? ' hot' : '';
+    parts.push(`<div class="sync-actions">
+      <button class="sync-btn" data-sync="check"${dis} title="检查远端有没有新内容">
+        <span class="ic">⟳</span>检查
+      </button>
+      <button class="sync-btn" data-sync="download"${dis}${hot} title="把远端的更新拉下来">
+        <span class="ic">↓</span>下载
+      </button>
+      <button class="sync-btn" data-sync="upload"${dis} title="把你在这里的改动推上去">
+        <span class="ic">↑</span>上传
+      </button>
+    </div>`);
+
+    // ---- 进度 ----
+    if (s.busy) {
+      parts.push(`<div class="sync-progress"><div class="bar"></div>${esc(s.step || '处理中…')}</div>`);
+    }
+
+    // ---- 错误 / 提示 ----
+    if (s.error) {
+      parts.push(`<div class="sync-msg err">${esc(s.error)}
+        ${s.hint ? `<div style="margin-top:4px">${esc(s.hint)}</div>` : ''}</div>`);
+    } else if (s.result) {
+      const r = s.result;
+      if (s.op === '' && r.ok) {
+        if (r.updated || r.added || r.changed) {
+          const bits = [];
+          if (r.updated?.length) bits.push(`更新 ${r.updated.length} 个`);
+          if (r.added?.length) bits.push(`新增 ${r.added.length} 个`);
+          if (r.copied && !r.updated) bits.push(`同步 ${r.copied} 个文件`);
+          if (!bits.length && r.changed) bits.push('远端有新提交');
+          if (!bits.length) bits.push('已是最新');
+          const sample = [...(r.added ?? []), ...(r.updated ?? [])].slice(0, 5);
+          parts.push(`<div class="sync-msg ok">${esc(bits.join('，'))}
+            ${sample.length ? `<ul>${sample.map((x) => `<li class="mono">${esc(x)}</li>`).join('')}</ul>` : ''}
+            ${(r.updated?.length ?? 0) + (r.added?.length ?? 0) > 5
+              ? `<div style="margin-top:3px">…</div>` : ''}</div>`);
+        } else if (r.localDiff?.length) {
+          parts.push(`<div class="sync-msg warn">本地有 ${r.localDiff.length} 个数据文件和远端不同，建议点「上传」推上去。</div>`);
+        }
+      }
+    }
+
+    // ---- 上次检查时间 ----
+    if (s.lastCheckAt) {
+      const ago = Math.round((Date.now() - s.lastCheckAt) / 1000);
+      const label = ago < 60 ? `${ago} 秒前` : ago < 3600 ? `${Math.round(ago / 60)} 分钟前` : `${Math.round(ago / 3600)} 小时前`;
+      parts.push(`<div class="sync-repo" style="text-align:right">上次检查 ${label}</div>`);
+    }
+
+    box.innerHTML = parts.join('');
+  }
+
+  /** 拉一次状态（默认静默：不弹 toast） */
+  async function refreshSync({ quiet = true } = {}) {
+    try {
+      const r = await api('/api/sync/status');
+      const wasBusy = state.sync?.busy;
+      applySync(r);
+      // 任务刚跑完：刷新武将数据，并提示一次
+      if (wasBusy && !r.busy && state.syncBusySelf) {
+        state.syncBusySelf = false;
+        await loadAll();
+        if (r.error) toast(r.error, 'err');
+        else if (r.op === '' && r.result?.ok) {
+          if (r.result.updated?.length || r.result.added?.length) {
+            toast(`已下载，更新 ${r.result.updated?.length ?? 0} 个、新增 ${r.result.added?.length ?? 0} 个数据文件`, 'ok');
+          } else if (r.result.copied) {
+            toast(`已上传（${r.result.copied} 个文件变动）`, 'ok');
+          } else {
+            toast('已上传，远端已是最新', 'ok');
+          }
+        }
+      }
+    } catch {
+      /* 服务可能刚重启，静默 */
+    }
+  }
+
+  /** 点按钮触发一个同步动作 */
+  async function triggerSync(op) {
+    const label = op === 'upload' ? '上传' : op === 'download' ? '下载' : '检查';
+    try {
+      state.syncBusySelf = true;
+      const r = await api(`/api/sync/${op}`, { method: 'POST' });
+      if (r.busy) { toast('已经有一个同步任务在跑'); return; }
+      state.sync = { ...(state.sync ?? {}), busy: true, op, step: '正在开始…' };
+      renderSyncBox();
+      // 立刻开始快轮询
+      pollFast(24);
+    } catch (err) {
+      state.syncBusySelf = false;
+      toast(`${label}失败：${err.message}`, 'err');
+    }
+  }
+
+  /** 密集轮询一段时间（同步任务进行中） */
+  function pollFast(times) {
+    clearTimeout(state.syncTimer);
+    let n = 0;
+    const tick = async () => {
+      await refreshSync();
+      n++;
+      if (state.sync?.busy && n < times) {
+        state.syncTimer = setTimeout(tick, 900);
+      } else {
+        scheduleSyncPoll();
+      }
+    };
+    state.syncTimer = setTimeout(tick, 700);
+  }
+
+  /** 常态轮询：按服务端配置的间隔（默认 60 秒），页面隐藏时不跑 */
+  function scheduleSyncPoll() {
+    clearTimeout(state.syncTimer);
+    const ms = Math.max(15000, Number(state.sync?.config?.autoCheckMs) || 60000);
+    state.syncTimer = setTimeout(async () => {
+      if (!document.hidden) {
+        const before = state.sync?.status?.remoteHead;
+        // 常态轮询走一次真正的远端检查，才能发现"别人推了新东西"
+        try { await api('/api/sync/check', { method: 'POST' }); } catch { /* 忽略 */ }
+        state.syncBusySelf = false;
+        await new Promise((r) => setTimeout(r, 1200));
+        await refreshSync();
+        const after = state.sync?.status?.remoteHead;
+        if (after && before && after !== before) {
+          toast('远端有新内容，点侧栏「下载」可以拉下来', 'ok');
+        }
+      }
+      scheduleSyncPoll();
+    }, ms);
+  }
+
+  /** 同步设置弹窗 */
+  function syncSettingsModal() {
+    const cfg = state.sync?.config ?? {};
+    openModal(`
+      <h3>同步设置</h3>
+      <p class="modal-sub">
+        网页通过本机服务调用 git 与远端交换。这里配的就是它用的地址与范围。
+      </p>
+      <div class="form-grid">
+        <div class="field wide"><label>仓库地址（HTTPS）</label>
+          <input id="syRemote" value="${esc(cfg.remote ?? '')}" placeholder="https://github.com/<用户名>/<仓库>.git"></div>
+        <div class="field"><label>分支</label>
+          <input id="syBranch" value="${esc(cfg.branch ?? 'main')}"></div>
+        <div class="field"><label>同步范围</label>
+          <select id="syMode">
+            <option value="data"${cfg.mode === 'data' ? ' selected' : ''}>仅数据（约 0.1 MB）</option>
+            <option value="data+art"${cfg.mode === 'data+art' ? ' selected' : ''}>数据+立绘+原画+语音（约 72 MB）</option>
+            <option value="full"${cfg.mode === 'full' ? ' selected' : ''}>全部，含 .shap（约 208 MB）</option>
+          </select>
+        </div>
+        <div class="field"><label>轮询间隔（秒）</label>
+          <input id="syInterval" type="number" min="15" value="${esc(Math.round((cfg.autoCheckMs ?? 60000) / 1000))}"></div>
+        <div class="field wide"><label>代理（git 不读 Windows 系统代理，留空则直连）</label>
+          <input id="syProxy" value="${esc(cfg.proxy ?? '')}" placeholder="http://127.0.0.1:7892"></div>
+        <div class="field wide"><label>git 工作副本位置</label>
+          <input id="syWork" value="${esc(cfg.work ?? '')}"></div>
+      </div>
+      <p class="modal-sub" style="margin:12px 0 0">
+        提示：这台机器上 github.com 直连会被打断，需要挂着代理并在上面填对端口。
+        改完保存后点一次「检查」验证是否连得上。
+      </p>
+      <div class="modal-foot">
+        <button class="ghost-btn" data-close-modal="1">取消</button>
+        <button class="primary-btn" id="sySave">保存</button>
+      </div>
+    `);
+
+    $('#sySave').addEventListener('click', async () => {
+      const body = {
+        remote: $('#syRemote').value.trim(),
+        branch: $('#syBranch').value.trim() || 'main',
+        mode: $('#syMode').value,
+        proxy: $('#syProxy').value.trim(),
+        work: $('#syWork').value.trim(),
+        autoCheckMs: Math.max(15000, (Number($('#syInterval').value) || 60) * 1000),
+      };
+      try {
+        const r = await api('/api/sync/config', { method: 'PUT', body: JSON.stringify(body) });
+        closeModal();
+        applySync({ ...(state.sync ?? {}), config: r.config });
+        scheduleSyncPoll();
+        toast('同步设置已保存', 'ok');
+        triggerSync('check');
+      } catch (err) {
+        toast(`保存失败：${err.message}`, 'err');
+      }
+    });
+  }
+
+  /** 同步面板的事件（按钮在侧栏，事件委托到 #syncBox） */
+  function bindSyncEvents() {
+    const box = $('#syncBox');
+    if (box) {
+      box.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-sync]');
+        if (b) triggerSync(b.dataset.sync);
+      });
+    }
+    const gear = $('#btnSyncSettings');
+    if (gear) gear.addEventListener('click', syncSettingsModal);
+
+    // 页面重新可见时立刻刷一次（切回来就能看到最新状态）
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) refreshSync();
+    });
   }
 
   /* --------------------------- 保存 --------------------------- */
@@ -1525,6 +1818,7 @@
     });
 
     bindDrawerEvents();
+    bindSyncEvents();
 
     // 素材变化时自动刷新（服务端写完文件后 mtime 会变）
     window.addEventListener('focus', async () => {
@@ -1551,10 +1845,15 @@
 
   async function boot() {
     bindGlobalEvents();
+    bindSyncEvents();
     await loadAll();
     // 支持 #武将 / #tag 之类的深链（可选）
     const hash = decodeURIComponent(location.hash.replace(/^#/, ''));
     if (hash && state.characters.some((c) => c.id === hash)) openDrawer(hash);
+
+    // 首屏先拉一次实时状态，然后开始常态轮询
+    refreshSync();
+    scheduleSyncPoll();
   }
 
   boot();

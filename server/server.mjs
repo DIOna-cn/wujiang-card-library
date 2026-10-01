@@ -18,6 +18,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import url from 'node:url';
 import { fileURLToPath } from 'node:url';
+import * as syncCore from './sync-core.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -34,6 +35,7 @@ const WEB = path.join(ROOT, 'web');
 const DATA = path.join(ROOT, '.data');
 const RECYCLE = path.join(DATA, '回收站');
 const DATA_FILE = '武将.json';
+const PROJECT_NAME = path.basename(ROOT);
 
 /**
  * 找素材目录。
@@ -98,6 +100,128 @@ const ASSETS = resolveAssets();
 
 fs.mkdirSync(DATA, { recursive: true });
 fs.mkdirSync(RECYCLE, { recursive: true });
+
+/* ------------------------------------------------------------------ *
+ * 同步（网页上的「上传 / 下载 / 轮询」）
+ *
+ * 网页没法直接跑 git，所以这些动作都由服务端代做，前端只负责点按钮、看进度。
+ *
+ * 状态是内存里的一份对象，前端轮询 GET /api/sync/status 读它 ——
+ * 比在 HTTP 连接上挂 SSE/长轮询简单得多，也不会因为一次操作要几十秒而超时。
+ * ------------------------------------------------------------------ */
+
+const SYNC_CONFIG_FILE = path.join(DATA, 'sync.json');
+
+/** 默认仓库地址。对应 DIOna-cn/wujiang-card-library。 */
+const DEFAULT_REMOTE = process.env.WUJIANG_REMOTE || 'https://github.com/DIOna-cn/wujiang-card-library.git';
+
+const syncConfig = {
+  remote: DEFAULT_REMOTE,
+  branch: 'main',
+  mode: 'data+art',
+  work: syncCore.defaultWorkDir(ROOT, PROJECT_NAME),
+  proxy: '',               // 启动时自动从系统代理读；读不到就空着
+  autoCheckMs: 60000,      // 网页多久轮询一次
+  ...(await readJson(SYNC_CONFIG_FILE).catch(() => ({}))),
+};
+
+const syncState = {
+  lastCheckAt: 0,
+  busy: false,
+  op: '',                  // '' | 'check' | 'upload' | 'download'
+  step: '',
+  steps: [],
+  error: '',
+  hint: '',
+  result: null,
+  lastStatus: null,        // checkStatus 的结果
+};
+
+async function saveSyncConfig() {
+  await writeFileAtomic(SYNC_CONFIG_FILE, JSON.stringify(syncConfig, null, 2) + '\n');
+}
+
+// 启动时把系统代理读进配置（git 不读系统代理，必须显式传给 git）
+(async () => {
+  try {
+    const sys = await syncCore.readSystemProxy();
+    if (sys) {
+      if (syncConfig.proxy !== sys) {
+        syncConfig.proxy = sys;
+        await saveSyncConfig();
+      }
+      console.log(`  代理       ${sys}（从 Windows 系统代理读到）`);
+    } else {
+      console.log('  代理       未检测到系统代理（git 需要走代理时可在页面上填）');
+    }
+  } catch { /* 忽略 */ }
+})();
+
+/** 从 remote 地址解析出 owner/repo@branch（页面上要显示"在跟哪个仓库同步"） */
+function parseRemoteInfo(remote, branch) {
+  return syncCore.parseRemote(remote, branch);
+}
+
+/** 串行队列：一次只跑一个同步任务，避免两个按钮同时点把工作副本搅乱 */
+let syncChain = Promise.resolve();
+function queueSync(op) {
+  const run = async () => {
+    syncState.busy = true;
+    syncState.op = op;
+    syncState.steps = [];
+    syncState.step = '';
+    syncState.error = '';
+    syncState.hint = '';
+    syncState.result = null;
+    const onStep = (s) => { syncState.step = s; syncState.steps.push(s); };
+
+    const common = {
+      project: ROOT,
+      assets: ASSETS,
+      work: syncConfig.work,
+      mode: syncConfig.mode,
+      remote: syncConfig.remote,
+      branch: syncConfig.branch,
+      proxy: syncConfig.proxy,
+      projectName: PROJECT_NAME,
+      onStep,
+    };
+
+    try {
+      if (op === 'check') {
+        syncState.lastStatus = await syncCore.checkStatus(common);
+        syncState.lastCheckAt = Date.now();
+        if (!syncState.lastStatus.reachable) {
+          syncState.error = '连不上远端：' + (syncState.lastStatus.error || '');
+          syncState.hint = syncConfig.proxy
+            ? '确认代理软件在运行，且端口与系统代理一致。'
+            : 'git 不读 Windows 系统代理，可在下面填代理地址。';
+        }
+      } else if (op === 'upload') {
+        const r = await syncCore.pushAll(common);
+        syncState.result = r;
+        if (!r.ok) { syncState.error = r.error; syncState.hint = r.hint || ''; }
+        // 上传完顺手刷一次状态
+        syncState.lastStatus = await syncCore.checkStatus(common);
+        syncState.lastCheckAt = Date.now();
+      } else if (op === 'download') {
+        const r = await syncCore.pullAll(common);
+        syncState.result = r;
+        if (!r.ok) { syncState.error = r.error; syncState.hint = r.hint || ''; }
+        syncState.lastStatus = await syncCore.checkStatus(common);
+        syncState.lastCheckAt = Date.now();
+      }
+    } catch (err) {
+      syncState.error = err.message;
+    } finally {
+      syncState.busy = false;
+      syncState.op = '';
+      syncState.step = '';
+    }
+  };
+  syncChain = syncChain.then(run, run);
+  return syncChain;
+}
 
 /* ------------------------------------------------------------------ *
  * 工具
@@ -587,6 +711,18 @@ async function handleApi(req, res, pathname, query) {
       directoryTags: tagFile.tags,
       directoryOrigins: tagFile.origins,
       characters: chars,
+      // 顺带把同步状态带上，省得前端为了画那几个按钮再多发一次请求
+      sync: {
+        busy: syncState.busy,
+        op: syncState.op,
+        step: syncState.step,
+        error: syncState.error,
+        hint: syncState.hint,
+        lastCheckAt: syncState.lastCheckAt,
+        status: syncState.lastStatus,
+        result: syncState.result,
+        config: syncConfig,
+      },
     });
   }
 
@@ -660,6 +796,46 @@ async function handleApi(req, res, pathname, query) {
     await writeFileAtomic(path.join(parent, dirName, DATA_FILE), JSON.stringify(char, null, 2) + '\n');
     const saved = await loadCharacter(path.join(parent, dirName), dirRel, dirRel);
     return sendJson(res, 201, { ok: true, character: saved });
+  }
+
+  /* ---------- 远端同步（上传 / 下载 / 轮询） ---------- */
+  if (pathname === '/api/sync/status' && method === 'GET') {
+    return sendJson(res, 200, {
+      config: syncConfig,
+      busy: syncState.busy,
+      op: syncState.op,
+      step: syncState.step,
+      steps: syncState.steps,
+      error: syncState.error,
+      hint: syncState.hint,
+      lastCheckAt: syncState.lastCheckAt,
+      status: syncState.lastStatus,
+      result: syncState.result,
+      remote: parseRemoteInfo(syncConfig.remote, syncConfig.branch),
+    });
+  }
+
+  if (pathname === '/api/sync/config' && method === 'PUT') {
+    const body = await readBody(req);
+    for (const k of ['remote', 'branch', 'mode', 'work', 'proxy']) {
+      if (typeof body[k] === 'string') syncConfig[k] = body[k].trim();
+    }
+    if (Number.isFinite(Number(body.autoCheckMs)) && Number(body.autoCheckMs) >= 10000) {
+      syncConfig.autoCheckMs = Number(body.autoCheckMs);
+    }
+    await saveSyncConfig();
+    return sendJson(res, 200, { ok: true, config: syncConfig });
+  }
+
+  const mSync = pathname.match(/^\/api\/sync\/(check|upload|download)$/);
+  if (mSync && method === 'POST') {
+    if (syncState.busy) {
+      return sendJson(res, 409, { error: '已经有一个同步任务在跑了，稍等一下。', busy: true });
+    }
+    const op = mSync[1];
+    // 不 await：任务在后台跑，前端轮询 /api/sync/status 看进度
+    queueSync(op);
+    return sendJson(res, 202, { ok: true, started: op });
   }
 
   /* ---------- 原作 与 标签表 ---------- */
