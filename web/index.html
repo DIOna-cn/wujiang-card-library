@@ -19,30 +19,31 @@
     </div>
   </div>
 
-  <div class="side-section">
-    <div class="side-head">
-      <span>原作</span>
-      <button class="icon-btn" id="btnEditTags" title="管理原作与标签">＋</button>
-    </div>
-    <div class="tag-tree" id="originTree"></div>
-  </div>
-
-  <div class="side-section">
-    <div class="side-head"><span>标签</span></div>
-    <div class="tag-tree" id="tagTree"></div>
-  </div>
-
-  <div class="side-section">
-    <div class="side-head"><span>势力</span></div>
-    <div class="tag-tree" id="kingdomTree"></div>
-  </div>
-
-  <div class="side-section">
+  <!-- 同步面板放最上面：它是「状态 + 操作」，不该被长长的标签列表挤到看不见 -->
+  <div class="side-section sync-section">
     <div class="side-head">
       <span>远程同步</span>
       <button class="icon-btn" id="btnSyncSettings" title="同步设置（仓库地址 / 代理 / 同步范围）">⚙</button>
     </div>
     <div class="sync-box" id="syncBox"></div>
+  </div>
+
+  <div class="side-section">
+    <div class="side-head">
+      <span>原作</span>
+      <button class="icon-btn" id="btnEditTags" title="管理原作与标签">＋</button>
+    </div>
+    <div class="tag-tree scrollable" id="originTree"></div>
+  </div>
+
+  <div class="side-section">
+    <div class="side-head"><span>标签</span></div>
+    <div class="tag-tree scrollable" id="tagTree"></div>
+  </div>
+
+  <div class="side-section">
+    <div class="side-head"><span>势力</span></div>
+    <div class="tag-tree scrollable" id="kingdomTree"></div>
   </div>
 
   <div class="side-foot">

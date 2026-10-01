@@ -139,6 +139,24 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 
 .tag-tree { display: flex; flex-direction: column; gap: 1px; }
 
+/*
+ * 筛选列表限高 + 独立滚动。
+ * 侧栏要同时放「同步面板 + 原作 + 标签 + 势力 + 统计」，
+ * 标签一多（现在 13 个）就会把后面的区块顶出视口，所以让列表自己滚。
+ * 同步面板放在最前面，它是状态+操作，不能被挤走。
+ */
+.tag-tree.scrollable {
+  max-height: 30vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* 让滚动条细一点，别抢视觉 */
+  scrollbar-width: thin;
+}
+.tag-tree.scrollable::-webkit-scrollbar { width: 6px; }
+.tag-tree.scrollable::-webkit-scrollbar-thumb { background: #2c323d; border-radius: 6px; border: 0; }
+
+.sync-section { padding-top: 2px; }
+
 .tag-row {
   display: flex;
   align-items: center;

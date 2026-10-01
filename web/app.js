@@ -907,13 +907,15 @@
     }
 
     // ---- 三个按钮 ----
+    // 注意 hot 要拼进 class 里，不能当独立属性写 —— 否则会生成 `hot=""` 这种空属性，
+    // class 里没有 hot，样式永远不生效（这个 bug 实际出现过一次）。
     const dis = s.busy ? ' disabled' : '';
     const hot = (st && st.hasRemoteUpdate && !s.busy) ? ' hot' : '';
     parts.push(`<div class="sync-actions">
       <button class="sync-btn" data-sync="check"${dis} title="检查远端有没有新内容">
         <span class="ic">⟳</span>检查
       </button>
-      <button class="sync-btn" data-sync="download"${dis}${hot} title="把远端的更新拉下来">
+      <button class="sync-btn${hot}" data-sync="download"${dis} title="把远端的更新拉下来">
         <span class="ic">↓</span>下载
       </button>
       <button class="sync-btn" data-sync="upload"${dis} title="把你在这里的改动推上去">
