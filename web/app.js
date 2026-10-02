@@ -35,6 +35,7 @@
     filterKingdom: '',
     keyword: '',
     onlyIncomplete: false,
+    onlyPending: false,
     view: 'grid',
 
     /* ---- 远程同步 ---- */
@@ -226,6 +227,7 @@
         for (const t of state.filterTags) if (!own.has(t)) return false;
       }
       if (state.onlyIncomplete && !isIncomplete(c)) return false;
+      if (state.onlyPending && c.implemented !== false) return false;
       if (kw) {
         const hay = [
           c.name, c.title, c.legendId, c.note, c.origin,
@@ -290,9 +292,11 @@
 
     // 统计里带上原作的覆盖情况
     const noOrigin = state.characters.filter((c) => !c.origin).length;
+    const pendingCount = state.characters.filter((c) => c.implemented === false).length;
     $('#statLine').innerHTML =
       `共 <b>${state.characters.length}</b> 位武将 · <b>${state.characters.reduce((a, c) => a + (c.cards?.length ?? 0), 0)}</b> 张卡面` +
       `<br>待补 <b>${state.characters.filter(isIncomplete).length}</b> 位` +
+      (pendingCount ? ` · 待实现 <b>${pendingCount}</b> 位` : '') +
       (noOrigin ? ` · 未标原作 <b>${noOrigin}</b> 位` : '');
 
     renderActiveFilters();
@@ -313,6 +317,7 @@
     if (state.filterKingdom) chips.push(chip(`势力：${kingdomLabel(state.filterKingdom)}`, `kingdom:${state.filterKingdom}`));
     if (state.keyword) chips.push(chip(`搜索：${state.keyword}`, '__kw__'));
     if (state.onlyIncomplete) chips.push(chip('只看待补', '__incomplete__'));
+    if (state.onlyPending) chips.push(chip('只看待实现', '__pending__'));
     $('#activeFilters').innerHTML = chips.join('');
   }
 
@@ -1949,6 +1954,7 @@
       const key = btn.dataset.clear;
       if (key === '__kw__') { state.keyword = ''; $('#search').value = ''; }
       else if (key === '__incomplete__') { state.onlyIncomplete = false; $('#onlyIncomplete').checked = false; }
+      else if (key === '__pending__') { state.onlyPending = false; $('#onlyPending').checked = false; }
       else if (key.startsWith('origin:')) state.filterOrigin = '';
       else if (key.startsWith('tag:')) state.filterTags.delete(key.slice(4));
       else if (key.startsWith('kingdom:')) state.filterKingdom = '';
@@ -1968,9 +1974,16 @@
       }, 130);
     });
 
-    // 只看待补
+    // 只看待补 / 只看待实现。两个开关各自独立，跟别的筛选一样是「与」的关系，
+    // 所以同时勾上得到的是交集（既待补又待实现）——待实现的武将往往资源是齐的，
+    // 勾重了多半是空列表，这是符合预期的
     $('#onlyIncomplete').addEventListener('change', (e) => {
       state.onlyIncomplete = e.target.checked;
+      renderSidebar();
+      renderGrid();
+    });
+    $('#onlyPending').addEventListener('change', (e) => {
+      state.onlyPending = e.target.checked;
       renderSidebar();
       renderGrid();
     });

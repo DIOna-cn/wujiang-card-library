@@ -51,6 +51,7 @@ powershell -ExecutionPolicy Bypass -File .\start.ps1
 | 左侧「势力」 | 按魏蜀吴群晋神妖魂筛选 |
 | 顶部搜索框 | 搜武将名、称号、技能名、技能描述、编号、原作、标签（按 `/` 快速聚焦） |
 | 「只看待补」 | 只列出缺卡图 / 缺描述 / 没技能的武将 |
+| 「只看待实现」 | 只列出 `implemented: false` 的武将，也就是卡片带橙色外框的那些。和「只看待补」一样是独立开关，两个都勾就是交集 |
 | 「卡图 / 列表」 | 两种浏览视图 |
 | 点卡图 | 右侧滑出详情：卡图、基本信息（含原作）、技能、引文、备注、附加内容、图片与语音素材 |
 
@@ -209,7 +210,7 @@ powershell -ExecutionPolicy Bypass -File .\start.ps1
 │  ├─ migrate-pending.mjs 把 素材\_待实现\<武将> 挪成平级并写上 implemented（幂等）
 │  ├─ mark-derived.mjs    给指定技能打「衍生技」标记（只动目标文件，不覆盖其它编辑）
 │  ├─ check-migration.mjs 逐条比对旧 描述.txt 与 武将.json，查有没有迁移丢信息
-│  ├─ verify.mjs          无头浏览器端到端自检（25 项）
+│  ├─ verify.mjs          无头浏览器端到端自检（29 项）
 │  ├─ verify-crud.mjs     新建/编辑/删除/待实现标记/原作与标签表自检（20 项，自动清理与还原）
 │  ├─ verify-shap-export.mjs  导出为 .shap 的自检（53 项，盯「只动文字、保住人工排版」）
 │  ├─ verify-desc-render.mjs  技能描述上色与转义的自检（21 项）
@@ -250,7 +251,7 @@ node scripts\import.mjs --force    # 全部重生成（★ 会覆盖网页里的
 ### 自检
 
 ```powershell
-node scripts\verify.mjs            # 端到端检查：渲染、图片、编辑保存落盘、搜索筛选
+node scripts\verify.mjs            # 端到端检查：渲染、图片、编辑保存落盘、搜索筛选、只看待实现
 node scripts\verify-crud.mjs       # 新建 → 编辑 → 标签 → 删除进回收站（用临时武将，自动清理）
 node scripts\verify-sync.mjs       # 同步面板：三个按钮、状态、设置弹窗
 node scripts\verify-merge.mjs      # 双方各自新建武将时能自动合并（用本地 bare 仓库，不联网）

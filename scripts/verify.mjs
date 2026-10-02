@@ -374,6 +374,9 @@ async function main() {
   await sleep(400);
   await clearFilters();
 
+  // 全量张数现算，别写死——武将数一直在长
+  const totalCards = await evaluate(`document.querySelectorAll('#grid .card').length`);
+
   const setSearch = async (v) => {
     await evaluate(`(() => {
       const el = document.querySelector('#search');
@@ -390,7 +393,7 @@ async function main() {
     names: [...document.querySelectorAll('#grid .card-name')].map(x => x.textContent),
   })`);
   const searchedObj = JSON.parse(searched);
-  ok('搜索过滤', searchedObj.n >= 1 && searchedObj.n < 28,
+  ok('搜索过滤', searchedObj.n >= 1 && searchedObj.n < totalCards,
     `"辉夜" → ${searchedObj.n} 张（${searchedObj.names.join('、')}）`);
 
   await setSearch('');
@@ -399,11 +402,43 @@ async function main() {
   const weiIndex = await evaluate(`[...document.querySelectorAll('#kingdomTree .tag-row')].findIndex(r => r.dataset.key === 'kingdom:wei')`);
   await realClick('#kingdomTree .tag-row', weiIndex >= 0 ? weiIndex : 1);
   const kingdomCount = await evaluate('document.querySelectorAll("#grid .card").length');
-  ok('势力筛选', kingdomCount >= 1 && kingdomCount < 28, `kingdom:wei → ${kingdomCount} 张`);
+  ok('势力筛选', kingdomCount >= 1 && kingdomCount < totalCards, `kingdom:wei → ${kingdomCount} 张`);
 
   const clearChip = await evaluate(`document.querySelectorAll('#activeFilters .filter-chip').length`);
   ok('筛选 chip 显示', clearChip >= 1, `${clearChip} 个`);
   await clearFilters();
+
+  // ---- 「只看待实现」----
+  // 预期值从接口现算：implemented 是随时会改的数据，写死个数迟早假失败
+  const pendList = await fetch(`${URL_BASE}api/characters`).then((r) => r.json()).catch(() => null);
+  const pendIds = (pendList?.characters ?? []).filter((c) => c.implemented === false).map((c) => c.id);
+
+  const togglePending = (on) => evaluate(`(() => {
+    const el = document.querySelector('#onlyPending');
+    el.checked = ${on};
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  })()`);
+
+  ok('工具栏有「只看待实现」开关', await evaluate(`!!document.querySelector('#onlyPending')`));
+  await togglePending(true);
+  await sleep(450);
+  const pendShown = JSON.parse(await evaluate(
+    `JSON.stringify([...document.querySelectorAll('#grid .card')].map(c => c.dataset.id))`,
+  ));
+  ok('只看待实现：只剩标了 implemented:false 的武将',
+    pendShown.length === pendIds.length && pendIds.every((id) => pendShown.includes(id)),
+    `显示 ${pendShown.length} 位（应为 ${pendIds.length}）：${pendShown.join('、') || '（空）'}`);
+  ok('只看待实现：出现可清除的 chip',
+    await evaluate(`[...document.querySelectorAll('#activeFilters [data-clear]')].some(b => b.dataset.clear === '__pending__')`));
+  await clearFilters();
+  const afterClearObj = JSON.parse(await evaluate(`JSON.stringify({
+    checked: document.querySelector('#onlyPending').checked,
+    n: document.querySelectorAll('#grid .card').length,
+  })`));
+  ok('只看待实现：清掉 chip 后开关复位并恢复全量',
+    afterClearObj.checked === false && afterClearObj.n === totalCards,
+    `checked=${afterClearObj.checked}，${afterClearObj.n} / ${totalCards}`);
 
   // 视图切换
   await evaluate(`document.querySelector('.seg button[data-view="list"]').click()`);
