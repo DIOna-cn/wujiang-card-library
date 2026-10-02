@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>DeepSeek Harness · 正在跳转</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: #14161a; color: #e7e9ee; padding: 24px;
+    font: 15px/1.7 system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+  }
+  .card {
+    width: 100%; max-width: 460px; padding: 28px 26px 24px;
+    background: #1c1f26; border: 1px solid #2a2f39; border-radius: 14px;
+  }
+  h1 { margin: 0 0 4px; font-size: 19px; font-weight: 600; letter-spacing: .5px; }
+  .sub { margin: 0 0 20px; font-size: 13px; color: #8b93a3; }
+  .status { display: flex; align-items: baseline; gap: 8px; margin-bottom: 14px; }
+  .dot {
+    flex: none; width: 8px; height: 8px; border-radius: 50%;
+    background: #4a5261; transform: translateY(-2px);
+  }
+  body[data-status="checking"] .dot { background: #d8a63c; animation: blink 1s ease-in-out infinite; }
+  body[data-status="redirecting"] .dot { background: #3ba55d; animation: blink 1s ease-in-out infinite; }
+  body[data-status="error"] .dot, body[data-status="expired"] .dot { background: #d9534f; }
+  @keyframes blink { 50% { opacity: .3; } }
+  #msg { font-size: 14px; }
+  .url-box {
+    margin: 16px 0 0; padding: 10px 12px; border-radius: 8px; background: #14161a;
+    border: 1px solid #2a2f39; word-break: break-all; font-size: 12.5px;
+    font-family: ui-monospace, Consolas, monospace; color: #7fd3a3;
+  }
+  .row { display: flex; gap: 10px; margin-top: 18px; }
+  button, a.btn {
+    flex: 1; text-align: center; text-decoration: none; cursor: pointer;
+    padding: 10px 12px; border-radius: 8px; border: 1px solid #3a4150;
+    background: #232833; color: #e7e9ee; font-size: 13.5px; font-family: inherit;
+  }
+  button:hover, a.btn:hover { background: #2b3140; }
+  a.btn.primary { background: #2f6bd8; border-color: #2f6bd8; }
+  a.btn.primary:hover { background: #3a79e8; }
+  .warn {
+    margin: 16px 0 0; padding: 10px 12px; border-radius: 8px; font-size: 12.5px;
+    background: #2a2118; border: 1px solid #4a3a22; color: #e0b878;
+  }
+  .links { margin-top: 18px; padding-top: 16px; border-top: 1px solid #262b34; font-size: 13px; }
+  .links a { color: #7f9fd6; text-decoration: none; margin-right: 14px; }
+  .links a:hover { text-decoration: underline; }
+  .hint { margin: 16px 0 0; font-size: 12px; color: #6f7787; }
+  .hide { display: none !important; }
+</style>
+</head>
+<body data-status="checking">
+  <main class="card">
+    <h1>DeepSeek Harness</h1>
+    <p class="sub">自动跳转到当前的公网地址</p>
+
+    <div class="status">
+      <span class="dot"></span>
+      <span id="msg">正在读取最新地址…</span>
+    </div>
+
+    <div class="url-box hide" id="urlBox"></div>
+
+    <div class="row">
+      <a class="btn primary hide" id="goBtn" href="#">立即前往</a>
+      <button type="button" id="retryBtn">重新检测</button>
+    </div>
+
+    <div class="warn">
+      这条链接约等于一台电脑的完全控制权，可以执行任意命令、读写任意文件。
+      自己用就好，别转发到公开的群或论坛。
+    </div>
+
+    <div class="links">
+      <a href="https://github.com/DIOna-cn/wujiang-card-library">项目仓库</a>
+      <a href="https://github.com/DIOna-cn/wujiang-card-library/blob/main/README.md">使用说明</a>
+    </div>
+
+    <p class="hint">
+      这里的地址是临时隧道，电脑关机或隧道断开就会失效。
+      失效时请在电脑上重新运行「DSH公网访问.cmd」，然后回到本页点「重新检测」。
+    </p>
+  </main>
+
+<script>
+(function () {
+  'use strict';
+
+  // live-dsh.json 由 dsh-tunnel/report.mjs 自动写入，这里按可靠性从高到低试三个通道：
+  //
+  //   1. 同源相对路径 —— 文件就在本仓库根目录，同一个 Pages 站点里直接取，
+  //      没有跨域问题，也最快（页面自己访问自己）；
+  //   2. raw.githubusercontent.com —— 跨域但要靠它的 CORS 头；它有一条
+  //      max-age=300 的 CDN 缓存，刚推完可能还回 404，所以不能只靠它；
+  //   3. api.github.com 的 contents 接口 —— 实时、不缓存，且带
+  //      Access-Control-Allow-Origin: *，是最后的兜底。
+  //      代价是未登录时每个 IP 每小时只有 60 次配额，所以只当备胎。
+  var SAME_ORIGIN = 'live-dsh.json';
+  var RAW = 'https://raw.githubusercontent.com/DIOna-cn/wujiang-card-library/main/live-dsh.json';
+  var API = 'https://api.github.com/repos/DIOna-cn/wujiang-card-library/contents/live-dsh.json?ref=main';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var msg = $('msg'), urlBox = $('urlBox'), goBtn = $('goBtn'), retryBtn = $('retryBtn');
+
+  function setStatus(s) { document.body.setAttribute('data-status', s); }
+
+  function showUrl(url) {
+    urlBox.textContent = url;
+    urlBox.classList.remove('hide');
+    goBtn.href = url;
+    goBtn.classList.remove('hide');
+  }
+
+  function fail(text) {
+    setStatus('error');
+    msg.textContent = text;
+    retryBtn.textContent = '重新检测';
+  }
+
+  function go(url) {
+    setStatus('redirecting');
+    msg.textContent = '正在跳转…如果浏览器没有自动跳，点下面的按钮。';
+    var landed = false;
+    try {
+      // 顶层 replace：不留历史记录，避免用户按返回又弹回这一页
+      window.top.location.replace(url);
+      landed = true;
+    } catch (e) {
+      // 被浏览器拦下（少见），保留按钮让用户手动点
+      landed = false;
+    }
+    setTimeout(function () {
+      if (landed && !document.hidden) {
+        msg.textContent = '仍在跳转 —— 说明隧道可能已经失效，点「重新检测」或联系站长。';
+        setStatus('expired');
+      }
+    }, 3500);
+  }
+
+  /**
+   * 把记录里的地址 + 密钥拼成可以直接打开的链接。
+   *
+   * 密钥由 dsh-tunnel/proxy.mjs 生成、report.mjs 一起上报到这里。
+   * 隧道那头的代理认这个参数，校验通过会种一个 30 天的 cookie，
+   * 所以对方只需要点一次链接，之后一路畅通。
+   *
+   * 用 URL 对象来拼，让浏览器自己负责百分号编码 —— 密钥是 base64url，
+   * 含 - 和 _，虽然这两个字符在查询串里安全，但交给它编码总不会错。
+   */
+  function buildTarget(data) {
+    var base = data && data.url ? String(data.url) : '';
+    if (!/^https:\/\/[a-z0-9.-]+$/i.test(base)) throw new Error('记录里的地址无效');
+    var key = data && data.key ? String(data.key) : '';
+    var target = new URL(base + '/');
+    if (key) target.searchParams.set('k', key);
+    return target.href;
+  }
+
+  /** 依次尝试三个通道，第一个成功的就用 */
+  function load() {
+    setStatus('checking');
+    msg.textContent = '正在读取最新地址…';
+    goBtn.classList.add('hide');
+    retryBtn.textContent = '重新检测';
+
+    var bust = '?t=' + Date.now();
+    var tries = [
+      { url: SAME_ORIGIN + bust, opt: { cache: 'no-store' } },
+      { url: RAW + bust, opt: { cache: 'no-store' } },
+      { url: API + '&t=' + Date.now(), opt: { cache: 'no-store', headers: { accept: 'application/vnd.github.raw+json' } } },
+    ];
+
+    var i = 0;
+    var errors = [];
+
+    function next() {
+      if (i >= tries.length) {
+        fail('三个通道都读不到地址（' + errors.join('；') + '）。等一会儿再点「重新检测」，或者直接问站长要地址。');
+        return;
+      }
+      var t = tries[i++];
+      fetch(t.url, t.opt)
+        .then(function (r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        })
+        .then(function (data) {
+          var target = buildTarget(data);
+          showUrl(target);
+          if (!data || !data.key) {
+            msg.textContent = '读到地址了，但记录里没有密钥，正在跳转…';
+          } else {
+            msg.textContent = '已读取到最新地址，正在跳转…';
+          }
+          go(target);
+        })
+        .catch(function (err) {
+          errors.push(err.message);
+          next();
+        });
+    }
+
+    next();
+  }
+
+  retryBtn.addEventListener('click', load);
+  load();
+})();
+</script>
+</body>
+</html>
