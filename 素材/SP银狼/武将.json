@@ -1,0 +1,63 @@
+{
+  "id": "SP银狼",
+  "dir": "SP银狼",
+  "source": {
+    "createdAt": "2026-10-02T15:42:10.858Z",
+    "createdBy": "web"
+  },
+  "schema": 1,
+  "name": "SP银狼",
+  "title": "浮生小憩",
+  "kingdom": "wei",
+  "hp": 2,
+  "maxHp": 2,
+  "shield": 0,
+  "gender": "",
+  "quality": "epic",
+  "legendId": "level 999",
+  "quote": "",
+  "copyright": "",
+  "isLord": false,
+  "implemented": true,
+  "origin": "崩坏星穹铁道",
+  "tags": [
+    "减益",
+    "生存",
+    "辅助",
+    "过牌",
+    "爆发",
+    "输出",
+    "增益",
+    "失去体力",
+    "娱乐",
+    "卖血",
+    "成长",
+    "控制"
+  ],
+  "note": "",
+  "cards": [
+    {
+      "name": "",
+      "image": "",
+      "cardImage": "卡面(2).png",
+      "legendId": "level 999",
+      "skills": [
+        {
+          "name": "木马",
+          "desc": ""
+        },
+        {
+          "name": "审计",
+          "desc": ""
+        },
+        {
+          "name": "灾备",
+          "desc": ""
+        }
+      ],
+      "derived": []
+    }
+  ],
+  "extras": [],
+  "updatedAt": "2026-10-02T15:44:48.585Z"
+}

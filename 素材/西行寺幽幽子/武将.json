@@ -1,0 +1,51 @@
+{
+  "id": "西行寺幽幽子",
+  "dir": "西行寺幽幽子",
+  "source": {
+    "createdAt": "2026-10-02T15:32:01.413Z",
+    "createdBy": "web"
+  },
+  "schema": 1,
+  "name": "西行寺幽幽子",
+  "title": "华胥的亡灵",
+  "kingdom": "qun",
+  "hp": 1,
+  "maxHp": 1,
+  "shield": 0,
+  "gender": "女",
+  "quality": "epic",
+  "legendId": "TH 004",
+  "quote": "",
+  "copyright": "",
+  "isLord": false,
+  "implemented": false,
+  "origin": "东方Project",
+  "tags": [
+    "娱乐",
+    "爆发",
+    "生存",
+    "过牌"
+  ],
+  "note": "",
+  "cards": [
+    {
+      "name": "",
+      "image": "",
+      "cardImage": "",
+      "legendId": "",
+      "skills": [
+        {
+          "name": "亡灵",
+          "desc": "锁定技，你的体力值低于1时，你随机弃置1-X张牌并将体力值恢复至1，否则你死亡（X为你的体力值）。你始终跳过弃牌阶段。"
+        },
+        {
+          "name": "",
+          "desc": "出牌阶段限一次，你可以选择任意张手牌，其获得：不可被弃置，"
+        }
+      ],
+      "derived": []
+    }
+  ],
+  "extras": [],
+  "updatedAt": "2026-10-02T15:47:58.969Z"
+}
