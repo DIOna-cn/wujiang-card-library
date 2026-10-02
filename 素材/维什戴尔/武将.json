@@ -24,7 +24,7 @@
   "cards": [
     {
       "name": "",
-      "image": "立绘_维什戴尔_2.png",
+      "image": "立绘.png",
       "cardImage": "新UI.绝对主角.维什戴尔.png",
       "legendId": "WEI 027",
       "skills": [
@@ -150,5 +150,5 @@
     "importedAt": "2026-10-01T09:50:32.181Z",
     "importer": "scripts/import.mjs"
   },
-  "updatedAt": "2026-10-01T14:54:13.946Z"
+  "updatedAt": "2026-10-02T01:25:43.496Z"
 }

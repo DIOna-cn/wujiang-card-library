@@ -26,7 +26,7 @@
   "cards": [
     {
       "name": "",
-      "image": "",
+      "image": "湖上的冰精.琪露诺-原画.png",
       "cardImage": "新UI.湖上的冰精.琪露诺.png",
       "legendId": "TH 250",
       "skills": [
@@ -57,5 +57,5 @@
     "importedAt": "2026-10-01T09:50:31.676Z",
     "importer": "scripts/import.mjs"
   },
-  "updatedAt": "2026-10-01T14:48:22.643Z"
+  "updatedAt": "2026-10-02T02:15:19.326Z"
 }

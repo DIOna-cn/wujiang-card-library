@@ -235,15 +235,53 @@ if (!multi) {
 }
 
 /* ------------------------------------------------------------------ */
-console.log('\n[4] 嵌套目录');
+console.log('\n[4] 嵌套目录（素材\\_归类\\<武将>）');
 
-const nested = chars.find((c) => c.dir.includes('/'));
-if (!nested) {
-  console.log('  跳过：没有嵌套目录的武将');
-} else {
-  const pv4 = await getJson(`api/shap/${encodeURIComponent(nested.dir)}`);
-  ok(`${nested.dir}：能访问`, pv4.status === 200, String(pv4.status));
-  ok(`${nested.dir}：认得自己的工程档`, (pv4.body?.cards ?? []).some((c) => !c.isDefault));
+// 武将现在一律平躺在 素材\ 下（「做没做完」改由 json 的 implemented 表示），
+// 素材里已经没有嵌套武将了。但服务端仍支持 _ 开头目录下取一层子目录，
+// 这条路径的要点是 URL 里那个 %2F 能被逐段还原成子目录，不能没人守。
+// 所以临时造一个真目录来测，跑完在 finally 里删干净。
+const NEST_GROUP = '_自检_嵌套目录';
+const NEST_NAME = '自检武将';
+const nestGroupAbs = ASSETS ? path.join(ASSETS, NEST_GROUP) : '';
+
+let nested = chars.find((c) => c.dir.includes('/'));
+let tempNestMade = false;
+
+try {
+  if (!nested && nestGroupAbs) {
+    const abs = path.join(nestGroupAbs, NEST_NAME);
+    fs.mkdirSync(abs, { recursive: true });
+    fs.writeFileSync(
+      path.join(abs, '武将.json'),
+      JSON.stringify({
+        schema: 1,
+        name: NEST_NAME,
+        title: '自检临时目录，正常不该出现',
+        kingdom: 'qun',
+        hp: 3,
+        maxHp: 3,
+        cards: [{ name: '', image: '', cardImage: '', legendId: '', skills: [], derived: [] }],
+        extras: [],
+      }, null, 2) + '\n',
+      'utf8',
+    );
+    tempNestMade = true;
+    nested = { dir: `${NEST_GROUP}/${NEST_NAME}` };
+  }
+
+  if (!nested) {
+    ok('嵌套目录：能拿到素材路径', false, `ASSETS=${ASSETS}`);
+  } else {
+    const pv4 = await getJson(`api/shap/${encodeURIComponent(nested.dir)}`);
+    const pv4cards = pv4.body?.cards ?? [];
+    ok(`${nested.dir}：带 %2F 的路径能访问`, pv4.status === 200, String(pv4.status));
+    ok(`${nested.dir}：没有工程档时走默认骨架`, pv4cards.length > 0 && pv4cards.every((c) => c.isDefault));
+  }
+} finally {
+  if (tempNestMade) {
+    try { fs.rmSync(nestGroupAbs, { recursive: true, force: true }); } catch { /* 删不掉也不该把整个自检带崩 */ }
+  }
 }
 
 /* ------------------------------------------------------------------ */

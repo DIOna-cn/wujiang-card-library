@@ -25,7 +25,7 @@
   "cards": [
     {
       "name": "",
-      "image": "立绘_2.png",
+      "image": "煌.png",
       "cardImage": "新UI.燃烧的心.煌.png",
       "legendId": "ARK 007",
       "skills": [
@@ -148,5 +148,5 @@
     "importedAt": "2026-10-01T09:50:31.672Z",
     "importer": "scripts/import.mjs"
   },
-  "updatedAt": "2026-10-01T14:47:11.310Z"
+  "updatedAt": "2026-10-02T02:02:01.475Z"
 }

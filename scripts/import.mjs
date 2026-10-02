@@ -105,7 +105,9 @@ const MANUAL = {
   '原画': { skip: '原画归档，不是武将目录' },
   '宝物卡图': { skip: '道具卡图，不是武将目录' },
 
-  '_待实现/锏': {
+  // 迁移前这个键写作 '_待实现/锏'。现在武将一律平躺在 素材\ 下，
+  // 「做没做完」由 武将.json 的 implemented 表示（见 scripts/migrate-pending.mjs）
+  '锏': {
     name: '锏',
     title: '',
     kingdom: 'qun',
@@ -678,7 +680,7 @@ function collectAssets(dir) {
 }
 
 function buildCharacter(folder) {
-  // 订正表既支持完整 key（_待实现/觉），也支持只用目录名（觉）
+  // 订正表既支持完整 key（有归类目录时写作 _归类/觉），也支持只用目录名（觉）
   const manual = MANUAL[folder.key] ?? MANUAL[folder.key.split('/').pop()] ?? {};
   const assets = collectAssets(folder.dir);
 

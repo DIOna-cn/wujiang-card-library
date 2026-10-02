@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "id": "_待实现/觉",
-  "dir": "_待实现/觉",
+  "id": "觉",
+  "dir": "觉",
   "name": "觉",
   "title": "读心妖怪",
   "kingdom": "jin",
@@ -14,6 +14,7 @@
   "quote": "",
   "copyright": "™&© 2026 上海爱丽丝幻乐团 .Illustration: unkown",
   "isLord": false,
+  "implemented": false,
   "origin": "东方Project",
   "tags": [
     "娱乐",

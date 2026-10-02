@@ -24,7 +24,7 @@
   "cards": [
     {
       "name": "",
-      "image": "",
+      "image": "立绘.png",
       "cardImage": "新UI.新地形.稀音.png",
       "legendId": "ARK 010",
       "skills": [
@@ -55,5 +55,5 @@
     "importedAt": "2026-10-01T09:50:31.739Z",
     "importer": "scripts/import.mjs"
   },
-  "updatedAt": "2026-10-01T14:48:40.397Z"
+  "updatedAt": "2026-10-02T02:04:41.842Z"
 }

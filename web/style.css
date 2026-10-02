@@ -19,6 +19,7 @@
   --danger:      #d0655c;
   --ok:          #63b37c;
   --info:        #6fa8dc;
+  --pending:     #f0883e;
 
   /* 卡图尺寸：带技能武将牌为 1465×2055，宽高比 0.71290 */
   --card-w:      220px;
@@ -432,6 +433,24 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .card-badge.warn { color: #e6b96a; }
 .card-badge.multi { left: auto; right: 7px; color: var(--accent); }
 
+/* ---- 待实现（武将.json 里 implemented: false）----
+   标记只加在卡图外框上：一圈橙色描边 + 外发光，卡图左下角一个「待实现」角标。
+   刻意不做成牌底的标签——那里已经挤着原作、玩法标签和技能 pill，
+   再塞一个状态标签会让人分不清哪些是玩法特性。
+   角标放左下是因为左上被「带技能卡图」占着、右上被「N 张牌」占着。 */
+.card.pending .card-figure {
+  box-shadow: 0 0 0 2px var(--pending), 0 0 22px -4px rgba(240,136,62,.5), 0 6px 20px -8px rgba(0,0,0,.75);
+}
+.card.pending:hover .card-figure {
+  box-shadow: 0 0 0 2px var(--pending), 0 0 32px -2px rgba(240,136,62,.7), 0 14px 34px -10px rgba(0,0,0,.85);
+}
+.card-badge.pending {
+  left: 7px; right: auto; top: auto; bottom: 7px;
+  color: var(--pending);
+  border: 1px solid rgba(240,136,62,.5);
+  background: rgba(240,136,62,.14);
+}
+
 .card-meta { padding: 9px 3px 0; }
 .card-name-row {
   display: flex;
@@ -811,6 +830,14 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   box-shadow: 0 8px 26px -10px rgba(0,0,0,.8), 0 0 0 1px var(--line-soft);
 }
 .card-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.card-preview.pending {
+  box-shadow: 0 0 0 2px var(--pending), 0 0 22px -4px rgba(240,136,62,.5), 0 8px 26px -10px rgba(0,0,0,.8);
+}
+
+/* 输入框后面跟一个按钮（卡图那两栏的「导入图片」） */
+.input-with-btn { display: flex; gap: 8px; align-items: center; }
+.input-with-btn input { flex: 1; min-width: 0; }
+.input-with-btn .ghost-btn { flex: 0 0 auto; white-space: nowrap; }
 
 .info-grid {
   flex: 1;
@@ -1142,6 +1169,16 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   background: rgba(208,101,92,.08);
   border: 1px solid rgba(208,101,92,.3);
   color: #e29b94;
+  font-size: 12.5px;
+  margin-bottom: 14px;
+}
+/* 详情页里解释卡图外框那圈橙色描边是什么意思 */
+.pending-box {
+  padding: 9px 12px;
+  border-radius: var(--r-md);
+  background: rgba(240,136,62,.08);
+  border: 1px solid rgba(240,136,62,.32);
+  color: #f0b183;
   font-size: 12.5px;
   margin-bottom: 14px;
 }

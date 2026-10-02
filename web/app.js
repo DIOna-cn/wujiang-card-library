@@ -369,9 +369,14 @@
     subParts.push(`<span>${esc(hpLabel(c))} 血</span>`);
     if (first.legendId || c.legendId) subParts.push(`<span class="id">${esc(first.legendId || c.legendId)}</span>`);
 
-    return `<button class="card" data-id="${esc(c.id)}">
+    // 待实现：用卡图外框的描边 + 卡图上的角标表示。
+    // 刻意不往牌底那片已经很挤的标签/技能区里再加一个「待实现」标签。
+    const pending = c.implemented === false;
+
+    return `<button class="card${pending ? ' pending' : ''}" data-id="${esc(c.id)}">
       <div class="card-figure">
         ${figure}
+        ${pending ? '<span class="card-badge pending">待实现</span>' : ''}
         ${multi ? `<span class="card-badge multi">${cards.length} 张牌</span>` : ''}
       </div>
       <div class="card-meta">
@@ -531,7 +536,11 @@
     const cards = c.cards ?? [];
     const active = cards[state.activeCardIndex] ?? cards[0] ?? {};
     const parts = [];
+    const pending = c.implemented === false;
 
+    if (pending) {
+      parts.push(`<div class="pending-box">这个武将标为「待实现」——卡图外框的琥珀色描边就是它的标记，别当成已完成的武将。</div>`);
+    }
     if (c.error) parts.push(`<div class="warn-box">读取这个文件夹时出错：${esc(c.error)}</div>`);
     if (!c.hasJson) {
       parts.push(`<div class="warn-box">这个文件夹里还没有 <code>武将.json</code>。点右上角「编辑」就能开始编写，保存后会自动生成。</div>`);
@@ -551,7 +560,7 @@
 
     parts.push(`<div class="section">
       <div class="card-preview-row">
-        <div class="card-preview">${previewInner(c.dir, active)}</div>
+        <div class="card-preview${pending ? ' pending' : ''}">${previewInner(c.dir, active)}</div>
         <div class="info-grid">
           ${infoField('称号', c.title || '—')}
           ${infoField('原作', c.origin || '（未标）')}
@@ -755,6 +764,12 @@
           <label>标签（玩法特性，可以多个：过牌 / 输出 / 增益 / 减益…）</label>
           ${tagEditorHtml(c.tags ?? [])}
         </div>
+        <div class="field wide">
+          <label>实现状态</label>
+          <label class="checkbox-row" title="还没做出来的武将，浏览时卡片外框会用琥珀色描边标出">
+            <input type="checkbox" data-pending="1"${c.implemented === false ? ' checked' : ''}>待实现
+          </label>
+        </div>
       </div>
     </div>`);
 
@@ -769,11 +784,17 @@
         <div style="flex:1;min-width:240px">
           <div class="field" style="margin-bottom:10px">
             <label>无技能卡图（显示用的主图）</label>
-            <input data-card-field="image" value="${esc(active.image ?? '')}" placeholder="如 立绘.png">
+            <div class="input-with-btn">
+              <input data-card-field="image" value="${esc(active.image ?? '')}" placeholder="如 立绘.png">
+              <button class="ghost-btn" data-import-image="image" title="从电脑里选一张图，上传到该武将文件夹并直接填进这一栏">导入图片</button>
+            </div>
           </div>
           <div class="field" style="margin-bottom:10px">
             <label>带技能卡图（备查 / 主图缺失时顶上）</label>
-            <input data-card-field="cardImage" value="${esc(active.cardImage ?? '')}" placeholder="如 新UI.卡名.武将.png">
+            <div class="input-with-btn">
+              <input data-card-field="cardImage" value="${esc(active.cardImage ?? '')}" placeholder="如 新UI.卡名.武将.png">
+              <button class="ghost-btn" data-import-image="cardImage" title="从电脑里选一张图，上传到该武将文件夹并直接填进这一栏">导入图片</button>
+            </div>
           </div>
           <div class="field">
             <label>本卡面编号</label>
@@ -1217,10 +1238,19 @@
       const t = e.target;
       if (!state.editing || !state.draft) return;
 
+      // 「待实现」开关：界面上说的是「待实现」，数据里存的是 implemented（已实现），
+      // 所以取值时要翻一下，免得哪天看数据的人以为勾上就是做完了
+      if (t.type === 'checkbox' && t.dataset.pending !== undefined) {
+        if (!state.draft) return;
+        state.draft.implemented = !t.checked;
+        markDirty();
+        return;
+      }
+
       // 顶层字段
       const field = t.dataset.field;
       if (field) {
-        let v = t.value;
+        let v = t.type === 'checkbox' ? t.checked : t.value;
         if (t.type === 'number') v = Number(v);
         state.draft[field] = v;
         if (field === 'name') {
@@ -1382,7 +1412,15 @@
         return;
       }
 
-      // 上传图片
+      // 导入图片：选本地图，上传后直接填进「无技能卡图 / 带技能卡图」那一栏，
+      // 省掉「先丢进素材库、再去图库里点设为主图」这两步
+      const importBtn = t.closest('[data-import-image]');
+      if (importBtn) {
+        pickAndUpload(importBtn.dataset.importImage);
+        return;
+      }
+
+      // 上传图片到武将文件夹（不指定用途，只是把图丢进素材库）
       if (t.closest('[data-upload]')) {
         pickAndUpload();
         return;
@@ -1433,16 +1471,24 @@
 
   /* --------------------------- 上传图片 --------------------------- */
 
-  function pickAndUpload() {
+  /**
+   * 选本地图片 → 上传到该武将文件夹。
+   *
+   * targetField 为空 = 只上传（「图片素材」区右上角那个 ⬆ 就是这种用法），可以多选；
+   * targetField 传 'image' / 'cardImage' = 上传完顺手把文件名填进编辑中的那一栏，
+   * 这时只收一张，免得一次选五张时不知道该拿哪张当主图。
+   */
+  function pickAndUpload(targetField = '') {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
-    input.multiple = true;
+    input.multiple = !targetField;
     input.addEventListener('change', async () => {
       const files = [...(input.files ?? [])];
       if (!files.length) return;
       const c = currentCharacter();
       if (!c) return;
+      let lastFile = '';
       for (const f of files) {
         try {
           const dataUrl = await new Promise((resolve, reject) => {
@@ -1451,15 +1497,34 @@
             r.onerror = () => reject(new Error('读取文件失败'));
             r.readAsDataURL(f);
           });
-          await api(`/api/upload/${encodeURIComponent(c.dir)}`, {
+          const res = await api(`/api/upload/${encodeURIComponent(c.dir)}`, {
             method: 'POST',
             body: JSON.stringify({ filename: f.name, dataUrl }),
           });
-          toast(`已上传：${f.name}`, 'ok');
+          // 重名时服务端会加 (2) 后缀，所以文件名以服务端返回的为准
+          lastFile = res?.file || f.name;
+          toast(`已上传：${lastFile}`, 'ok');
         } catch (err) {
           toast(`上传失败 ${f.name}：${err.message}`, 'err');
         }
       }
+
+      if (targetField && lastFile) {
+        // 直接写草稿并手动更新那一栏，不整块重画抽屉：
+        // renderDrawer 会重建 DOM，边框/滚动位置全丢，正在填的别的字段也会跳
+        if (state.editing && state.draft) {
+          const card = state.draft.cards[state.activeCardIndex];
+          if (card) {
+            card[targetField] = lastFile;
+            const dom = $(`[data-card-field="${targetField}"]`, $('#drawerBody'));
+            if (dom) dom.value = lastFile;
+            refreshPreview();
+            markDirty();
+          }
+        }
+        return;
+      }
+
       await reloadOne(c.id);
       renderDrawer();
     });
@@ -1490,7 +1555,6 @@
   }
 
   function newCharacterModal() {
-    const groups = ['', '_待实现'];
     openModal(`
       <h3>新建武将</h3>
       <p class="modal-sub">会在 素材\\ 下新建一个文件夹，并写入 武将.json</p>
@@ -1510,8 +1574,10 @@
           <select id="nGender"><option value="">—</option><option>男</option><option>女</option></select>
         </div>
         <div class="field"><label>文件夹名（默认用武将名）</label><input id="nDir" placeholder="留空 = 用武将名"></div>
-        <div class="field"><label>放在</label>
-          <select id="nGroup">${groups.map((g) => `<option value="${g}">${g || '素材根目录'}</option>`).join('')}</select>
+        <div class="field"><label>实现状态</label>
+          <label class="checkbox-row" title="还没做出来的武将，浏览时卡片外框会用琥珀色描边标出">
+            <input type="checkbox" id="nPending">待实现
+          </label>
         </div>
         <div class="field wide"><label>原作（只能一个，可留空）</label>
           <input id="nOrigin" list="newOriginSuggest" placeholder="如 明日方舟 / 东方Project / 原神 / 三国杀 / 原创">
@@ -1549,7 +1615,7 @@
         shield: Number($('#nShield').value) || 0,
         gender: $('#nGender').value,
         dir: $('#nDir').value.trim() || name,
-        group: $('#nGroup').value,
+        implemented: !$('#nPending').checked,
         origin: $('#nOrigin').value.trim(),
         tags: $('#nTags').value.split(/[,，、\s]+/).map((s) => s.trim()).filter(Boolean),
       };

@@ -1,0 +1,41 @@
+{
+  "id": "伏黑甚尔",
+  "dir": "伏黑甚尔",
+  "source": {
+    "createdAt": "2026-10-02T11:21:08.555Z",
+    "createdBy": "web"
+  },
+  "schema": 1,
+  "name": "伏黑甚尔",
+  "title": "天与咒缚",
+  "kingdom": "qun",
+  "hp": 4,
+  "maxHp": 4,
+  "shield": 0,
+  "gender": "",
+  "quality": "epic",
+  "legendId": "ZSHZ 002",
+  "quote": "",
+  "copyright": "",
+  "isLord": false,
+  "origin": "咒术回战",
+  "tags": [
+    "输出",
+    "减益",
+    "锁技能",
+    "爆发"
+  ],
+  "note": "",
+  "cards": [
+    {
+      "name": "",
+      "image": "",
+      "cardImage": "",
+      "legendId": "ZSHZ 002",
+      "skills": [],
+      "derived": []
+    }
+  ],
+  "extras": [],
+  "updatedAt": "2026-10-02T11:21:08.556Z"
+}

@@ -405,6 +405,8 @@ async function loadCharacter(dirAbs, dirRel, fallbackKey) {
   char.hasJson = !!jsonFile;
   char.parseError = parseError;
   char.mtime = jsonFile ? (await fsp.stat(jsonFile.abs)).mtimeMs : 0;
+  // 待实现：json 里没写这个字段就算已实现，这样已有的二十多个武将不用补字段
+  char.implemented = char.implemented !== false;
 
   // 卡片主图：确认文件真的存在，不存在就退回带技能卡图 / 留空（网页显示占位符）
   char.cards = Array.isArray(char.cards) ? char.cards : [];
@@ -645,6 +647,10 @@ function normalizeIncoming(body, existing = {}) {
     quote: str(body.quote, existing.quote ?? ''),
     copyright: str(body.copyright, existing.copyright ?? ''),
     isLord: !!body.isLord,
+    // 待实现开关。网页没传就沿用旧值；从来没写过 implemented 的旧数据算已实现
+    implemented: body.implemented === undefined
+      ? existing.implemented !== false
+      : !!body.implemented,
     // 原作单值；若网页仍把原作塞在 tags 里（旧数据），这里自动挑出来分开存
     ...(() => {
       const split = splitOriginFromTags(body.tags, str(body.origin, existing.origin ?? '').trim());
@@ -826,6 +832,7 @@ async function handleApi(req, res, pathname, query) {
       note: body.note ?? '',
       cards: [{ name: '', image: '', cardImage: '', legendId: body.legendId ?? '', skills: [], derived: [] }],
       extras: [],
+      implemented: body.implemented === false ? false : true,
     }, { id: dirRel, dir: dirRel, source: { createdAt: new Date().toISOString(), createdBy: 'web' } });
 
     await writeFileAtomic(path.join(parent, dirName, DATA_FILE), JSON.stringify(char, null, 2) + '\n');

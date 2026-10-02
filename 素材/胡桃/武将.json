@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "id": "_待实现/胡桃",
-  "dir": "_待实现/胡桃",
+  "id": "胡桃",
+  "dir": "胡桃",
   "name": "胡桃",
   "title": "往生堂主",
   "kingdom": "shu",
@@ -14,6 +14,7 @@
   "quote": "",
   "copyright": "™&© 2026 米哈游天命 .Illustration: K3nzoTeruya",
   "isLord": false,
+  "implemented": false,
   "origin": "原神",
   "tags": [
     "生存",
@@ -39,6 +40,11 @@
         {
           "name": "灵怪",
           "desc": "每局游戏限三次，每轮开始时，将一名故人插入你的随机一侧。"
+        },
+        {
+          "name": "幽魂",
+          "desc": "锁定技，每回合限一次，任何武将受到伤害时，你防止之并受到X-1点无来源伤害，然后该角色受到1点无来源伤害（X为其受到的伤害）。",
+          "derived": true
         }
       ],
       "derived": []
@@ -64,5 +70,5 @@
     "importedAt": "2026-10-01T09:50:31.538Z",
     "importer": "scripts/import.mjs"
   },
-  "updatedAt": "2026-10-01T16:38:08.591Z"
+  "updatedAt": "2026-10-02T02:12:00.075Z"
 }
