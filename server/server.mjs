@@ -152,8 +152,16 @@ async function saveSyncConfig() {
         await saveSyncConfig();
       }
       console.log(`  代理       ${sys}（从 Windows 系统代理读到）`);
+    } else if (syncConfig.proxy) {
+      // 系统代理关掉了，就把上次留下的代理清干净。
+      // 留着它会一直粘住：git 每次都去连那个已经不存在的端口，报
+      // 「Failed to connect ... via 127.0.0.1」，看着像 github 连不上，
+      // 而直连一直是好的 —— 这个误判曾经被当成事实写进 README。
+      console.log(`  代理       清掉残留的 ${syncConfig.proxy}（系统代理没开，改走直连）`);
+      syncConfig.proxy = '';
+      await saveSyncConfig();
     } else {
-      console.log('  代理       未检测到系统代理（git 需要走代理时可在页面上填）');
+      console.log('  代理       未使用，走直连（系统代理开着时会自动跟随）');
     }
   } catch { /* 忽略 */ }
 })();

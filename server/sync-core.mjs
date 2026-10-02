@@ -195,8 +195,8 @@ export function probeProxy(proxyUrl, timeoutMs = 1200) {
 
 /**
  * 跑一条 git 命令。
- * 一律带 -c http.proxy / https.proxy：git 不读 Windows 系统代理，
- * 而本机 github.com 直连会被打断（Empty reply / Failed to connect）。
+ * 传了 proxy 就带 -c http.proxy / https.proxy —— git 不读 Windows 系统代理，
+ * 要显式告诉它。不传就走直连：本机 github.com 直连实测是通的。
  * 同时关掉交互提示，避免服务器进程卡在等输入上。
  */
 export function git(args, { cwd, proxy = '', timeoutMs = 120000 } = {}) {
@@ -229,6 +229,23 @@ export async function isRepo(work) {
 }
 
 /**
+ * 把代理写进工作副本的 local config；没有代理就**把它删掉**。
+ *
+ * 这里必须能删：早先只在「有代理」时写、没代理时什么都不做，于是上一次留下的
+ * 代理会一直粘着 —— 代理软件一关，git 每次都去连那个死端口，报
+ * 「Failed to connect ... via 127.0.0.1」，看着就像 github 连不上，
+ * 而直连其实一直是好的。这个误判曾经被当成事实写进文档。
+ *
+ * 键本来就不存在时 `config --unset` 会返回非 0，那是正常的，不用管。
+ */
+async function applyProxyConfig(work, proxy) {
+  for (const key of ['http.proxy', 'https.proxy']) {
+    if (proxy) await git(['config', '--local', key, proxy], { cwd: work });
+    else await git(['config', '--local', '--unset', key], { cwd: work });
+  }
+}
+
+/**
  * 让工作副本「能跟 origin 说话」，但不改它的历史。
  *
  * 用 git -C 跑而不是先建目录：目录不存在时 git 会自己 new 一个，
@@ -247,10 +264,7 @@ export async function ensureRemoteOnly({ work, remote, branch = 'main', proxy = 
     }
   }
 
-  if (proxy) {
-    await git(['config', '--local', 'http.proxy', proxy], { cwd: work });
-    await git(['config', '--local', 'https.proxy', proxy], { cwd: work });
-  }
+  await applyProxyConfig(work, proxy);
   return { ready: true, created: false };
 }
 
@@ -275,10 +289,7 @@ export async function ensureRepo({ work, remote, branch = 'main', proxy = '', pr
     }
   }
 
-  if (proxy) {
-    await git(['config', '--local', 'http.proxy', proxy], { cwd: work });
-    await git(['config', '--local', 'https.proxy', proxy], { cwd: work });
-  }
+  await applyProxyConfig(work, proxy);
 
   return { created };
 }
