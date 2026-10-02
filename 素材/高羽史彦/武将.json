@@ -1,0 +1,46 @@
+{
+  "id": "高羽史彦",
+  "dir": "高羽史彦",
+  "source": {
+    "createdAt": "2026-10-02T12:36:09.201Z",
+    "createdBy": "web"
+  },
+  "schema": 1,
+  "name": "高羽史彦",
+  "title": "超人",
+  "kingdom": "wei",
+  "hp": 3,
+  "maxHp": 3,
+  "shield": 0,
+  "gender": "",
+  "quality": "epic",
+  "legendId": "ZSHZ 017",
+  "quote": "",
+  "copyright": "",
+  "isLord": false,
+  "implemented": false,
+  "origin": "咒术回战",
+  "tags": [
+    "娱乐",
+    "爆发",
+    "生存"
+  ],
+  "note": "",
+  "cards": [
+    {
+      "name": "",
+      "image": "立绘.png",
+      "cardImage": "带技能.jpg",
+      "legendId": "",
+      "skills": [
+        {
+          "name": "超人",
+          "desc": "当你使用或打出任意基本牌或普通锦囊牌时，你可以讲一个笑话，体力值不为0的角色一起选择是否好笑。\n若大于等于半数的角色均认为好笑，你选择一项：\n1.收回本牌并视为使用一张虚拟的本牌；\n2.此牌无距离次数限制并摸一张牌。\n若超过半数的角色认为不好笑，你选择一项：\n1、弃置所有手牌(需大于等于2)视为使用一张虚拟的本牌并使所有认为不好笑的角色受到一点伤害；\n2、终止此牌结算。\n当你本回合使用大于X次本技能时，你流失一点体力（X为场上角色数）。"
+        }
+      ],
+      "derived": []
+    }
+  ],
+  "extras": [],
+  "updatedAt": "2026-10-02T12:40:01.158Z"
+}
