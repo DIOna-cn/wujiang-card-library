@@ -798,6 +798,10 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   flex-wrap: wrap;
 }
 .card-preview {
+  /* 必须有 relative：里面的 .placeholder 是 absolute + inset:0，
+     少了这一行它会一路上溯到 position:fixed 的 .drawer，把整个抽屉铺满，
+     于是「没有卡图的武将」详情页看起来就是一片空白 + 一句提示。 */
+  position: relative;
   width: 216px;
   flex: 0 0 216px;
   aspect-ratio: 1465 / 2055;

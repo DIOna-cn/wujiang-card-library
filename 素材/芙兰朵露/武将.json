@@ -1,0 +1,36 @@
+{
+  "id": "芙兰朵露",
+  "dir": "芙兰朵露",
+  "source": {
+    "createdAt": "2026-10-02T00:27:53.352Z",
+    "createdBy": "web"
+  },
+  "schema": 1,
+  "name": "芙兰朵露",
+  "title": "恶魔之妹",
+  "kingdom": "",
+  "hp": 3,
+  "maxHp": 3,
+  "shield": 0,
+  "gender": "",
+  "quality": "epic",
+  "legendId": "",
+  "quote": "",
+  "copyright": "",
+  "isLord": false,
+  "origin": "",
+  "tags": [],
+  "note": "",
+  "cards": [
+    {
+      "name": "",
+      "image": "",
+      "cardImage": "",
+      "legendId": "",
+      "skills": [],
+      "derived": []
+    }
+  ],
+  "extras": [],
+  "updatedAt": "2026-10-02T00:27:53.353Z"
+}

@@ -236,7 +236,8 @@ async function main() {
     originAfterB.chips.length === 1 &&
     originAfterA.chips[0] !== originAfterB.chips[0] &&
     originAfterB.originActive.length === 1 &&
-    originAfterC.chips.length === 0 && originAfterC.cards === 28;
+    // 和初始快照比，别写死数字 —— 以后新增武将不该让这条测试失败
+    originAfterC.chips.length === 0 && originAfterC.cards === originBefore.cards;
   ok('原作筛选为单选（换一个会替换，再点取消）', originSingle,
     `${originAfterA.chips[0] ?? '—'}(${originAfterA.cards}张) → ${originAfterB.chips[0] ?? '—'}(${originAfterB.cards}张)` +
     ` → 取消(${originAfterC.cards}张)，初始 ${originBefore.cards} 张`);
