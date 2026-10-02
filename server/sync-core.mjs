@@ -471,6 +471,9 @@ export async function syncToWork({ work, workSet, mode = DEFAULT_MODE }) {
   await pruneEmpty(path.join(work, '素材'));
 
   const giPath = path.join(work, '.gitignore');
+  // 这段文字要和 publish\sync-repo.mjs 里那一份**逐字一致**。两边都会生成
+  // 工作副本的 .gitignore，措辞一旦不同，网页上传和命令行推送就会互相覆盖它，
+  // 每次交替使用都抖出一个「.gitignore 变了」的无意义提交。
   const giText = [
     '# 由同步逻辑生成，别手改 —— 改了下次同步会被覆盖回去',
     '',
