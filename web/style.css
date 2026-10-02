@@ -1271,6 +1271,18 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 }
 .checkbox-row input { accent-color: var(--accent); }
 
+/* 放进 .field 里的复选框（「实现状态」那一处）：
+   .field input 的 width:100% 会把复选框撑满整行，把「待实现」三个字挤到最右边换行；
+   .field label 的 11px 又会盖掉 .checkbox-row 的字号，所以这里一并扳回来 */
+.field .checkbox-row { font-size: 12.5px; letter-spacing: 0; }
+.field .checkbox-row input {
+  width: auto;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
 .tag-manage-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
 .tag-manage-row {
   display: flex;
