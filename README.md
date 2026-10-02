@@ -210,7 +210,7 @@ powershell -ExecutionPolicy Bypass -File .\start.ps1
 │  ├─ migrate-pending.mjs 把 素材\_待实现\<武将> 挪成平级并写上 implemented（幂等）
 │  ├─ mark-derived.mjs    给指定技能打「衍生技」标记（只动目标文件，不覆盖其它编辑）
 │  ├─ check-migration.mjs 逐条比对旧 描述.txt 与 武将.json，查有没有迁移丢信息
-│  ├─ verify.mjs          无头浏览器端到端自检（29 项）
+│  ├─ verify.mjs          无头浏览器端到端自检（30 项）
 │  ├─ verify-crud.mjs     新建/编辑/删除/待实现标记/原作与标签表自检（20 项，自动清理与还原）
 │  ├─ verify-shap-export.mjs  导出为 .shap 的自检（53 项，盯「只动文字、保住人工排版」）
 │  ├─ verify-desc-render.mjs  技能描述上色与转义的自检（21 项）
