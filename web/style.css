@@ -1222,6 +1222,7 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .shap-sub .del { color: var(--danger); }
 
 .shap-warn { margin: 6px 0 0; font-size: 12.5px; color: var(--accent); }
+.shap-bold { margin: 8px 0 0; font-size: 12.5px; color: var(--fg-dim); }
 
 
 .checkbox-row {

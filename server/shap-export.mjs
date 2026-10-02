@@ -135,6 +135,67 @@ function normSkills(card) {
     .filter((s) => s.name || s.desc);
 }
 
+/**
+ * 网页上会标色的三类内容 —— 技能类型词、【牌名】、引号里的专名。
+ *
+ * 这三条必须和 web/app.js 的 renderDesc 保持一致，否则网页上看到的高亮
+ * 和导出的加粗会对不上（scripts/verify-shap-export.mjs 的 [10] 有交叉检查盯着）。
+ */
+const BOLD_RULES = [
+  /(锁定技|持恒技|觉醒技|限定技|转换技|使命技|主公技|蓄力技|衍生技)/g,
+  /【[^】]{1,12}】/g,
+  /(「[^」]{1,40}」|『[^』]{1,40}』|“[^”]{1,40}”|‘[^’]{1,40}’|"[^"]{1,40}")/g,
+];
+
+/** 剥掉 <b>，用来做「语义上有没有改」的比较 */
+const stripBold = (t) => String(t ?? '').replace(/<\/?b>/gi, '');
+
+/**
+ * 给标色内容左右包上 <b></b>，让做卡软件里也能加粗。
+ *
+ * 三点讲究：
+ *  1. 先把历史遗留的 <b> 剥掉再按当前规则来一遍 —— 反复导出不会越包越多层，
+ *     也不会留下「手工加粗」和「自动加粗」混杂的中间态；
+ *  2. 三类匹配到的区间要合并重叠，避免出现 <b><b>…</b></b>；
+ *  3. 不成对的引号、空引号、超长的不动，和网页上的判断完全一致。
+ */
+function boldifySpans(text) {
+  const src = String(text ?? '');
+  if (!src) return { text: '', count: 0 };
+
+  const clean = stripBold(src);
+  const spans = [];
+  for (const re of BOLD_RULES) {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(clean)) !== null) {
+      if (m[0].length === 0) {
+        re.lastIndex++;
+        continue;
+      }
+      spans.push([m.index, m.index + m[0].length]);
+    }
+  }
+  if (!spans.length) return { text: clean, count: 0 };
+
+  spans.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const merged = [spans[0].slice()];
+  for (let i = 1; i < spans.length; i++) {
+    const last = merged[merged.length - 1];
+    if (spans[i][0] <= last[1]) last[1] = Math.max(last[1], spans[i][1]);
+    else merged.push(spans[i].slice());
+  }
+
+  let out = '';
+  let cursor = 0;
+  for (const [s0, e0] of merged) {
+    out += clean.slice(cursor, s0) + '<b>' + clean.slice(s0, e0) + '</b>';
+    cursor = e0;
+  }
+  out += clean.slice(cursor);
+  return { text: out, count: merged.length };
+}
+
 /** 生成导出文件名 */
 function exportFileName({ character, card, index, skeleton, multiCard }) {
   const who = legalName(character.name || character.dir || '武将') || '武将';
@@ -213,13 +274,27 @@ export function buildCardShap({ character = {}, card = {}, index = 0, dirAbs = '
   // ---- 技能表 ----
   // .shap 里的衍生技就是普通条目（煌的沸腾/爆裂在工程档里看不出是衍生），
   // 所以这里不做区分，原样写进去。
+  //
+  // 网页上会标色的三类内容，写进工程档时换成 <b></b> 包起来。判断「有没有改过」
+  // 用的是剥掉 <b> 的原文，免得上次导出留下的加粗被当成一次新修改而反复刷屏。
   const skills = normSkills(card);
   const beforeSkills = (bi.skills ?? []).map((s) => ({
     name: String(s?.name ?? ''),
-    desc: String(s?.desc ?? ''),
+    desc: stripBold(String(s?.desc ?? '')),
   }));
+
+  let boldCount = 0;
+  const boldSamples = [];
+  bi.skills = skills.map((s) => {
+    const r = boldifySpans(s.desc);
+    boldCount += r.count;
+    for (const m of r.text.matchAll(/<b>([^<]{1,40})<\/b>/g)) {
+      if (boldSamples.length < 8 && !boldSamples.includes(m[1])) boldSamples.push(m[1]);
+    }
+    return { name: s.name, desc: r.text };
+  });
+
   if (JSON.stringify(beforeSkills) !== JSON.stringify(skills)) {
-    bi.skills = skills;
     changes.push({
       label: '技能表',
       path: 'baseInfo.skills',
@@ -286,6 +361,7 @@ export function buildCardShap({ character = {}, card = {}, index = 0, dirAbs = '
     isDefault,
     changes,
     warnings,
+    bold: { count: boldCount, samples: boldSamples },
     obj,
   };
 }

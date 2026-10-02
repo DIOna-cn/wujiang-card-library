@@ -1776,6 +1776,12 @@
 
     const warns = (r.warnings ?? []).map((w) => `<p class="shap-warn">⚠ ${esc(w)}</p>`).join('');
 
+    // 导出时会自动给标色内容包上 <b>，这里把「包了哪些」摆出来给人看
+    const boldInfo = r.bold ?? { count: 0, samples: [] };
+    const boldLine = boldInfo.count
+      ? `<p class="shap-bold">已给 ${boldInfo.count} 处专名加上 &lt;b&gt;&lt;/b&gt;：${boldInfo.samples.map((x) => esc(x)).join('、')}${boldInfo.samples.length >= 8 ? ' …' : ''}</p>`
+      : '';
+
     return `<div class="shap-card">
       <div class="shap-card-head">
         <strong>${head}</strong>
@@ -1785,6 +1791,7 @@
       ${changes.length
         ? `<ul class="shap-changes">${rows}</ul>`
         : '<p class="shap-src dim">网页数据与工程档已经一致，导出内容不变。</p>'}
+      ${boldLine}
       ${warns}
       <button class="ghost-btn" data-shap-download="${i}">下载 .shap</button>
     </div>`;

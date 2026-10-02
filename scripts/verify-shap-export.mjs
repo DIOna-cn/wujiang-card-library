@@ -12,6 +12,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const BASE = process.env.URL_BASE ?? 'http://127.0.0.1:3456/';
 
@@ -35,6 +36,94 @@ const getRaw = async (p) => {
   const r = await fetch(BASE + p);
   return { status: r.status, headers: r.headers, buf: Buffer.from(await r.arrayBuffer()) };
 };
+
+/* ------------------------------------------------------------------ *
+ * 交叉检查用：把 web/app.js 里的 renderDesc 真身抠出来
+ *
+ * 网页上标色的规则（kw / card-name-ref / quoted）和导出时加 <b> 的规则
+ * （server/shap-export.mjs 的 BOLD_RULES）是两份代码，很容易改了一边忘了另一边。
+ * 这里拿同一段描述分别跑一遍，比较「被标记的字符区间」是否一致。
+ * ------------------------------------------------------------------ */
+
+const APP_SRC = fs.readFileSync(
+  path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'web', 'app.js'),
+  'utf8',
+);
+
+function extractFn(src, name) {
+  const start = src.indexOf(`function ${name}(`);
+  if (start < 0) throw new Error(`web/app.js 里找不到 function ${name}`);
+  const open = src.indexOf('{', start);
+  let depth = 0;
+  for (let i = open; i < src.length; i++) {
+    if (src[i] === '{') depth++;
+    else if (src[i] === '}') {
+      depth--;
+      if (depth === 0) return src.slice(start, i + 1);
+    }
+  }
+  throw new Error(`${name} 花括号不配对`);
+}
+
+const renderDesc = new Function(
+  `${extractFn(APP_SRC, 'esc')}\n${extractFn(APP_SRC, 'renderDesc')}\nreturn renderDesc;`,
+)();
+
+/** 剥掉 <b>，用来做忽略加粗的比较 */
+const stripB = (t) => String(t ?? '').replace(/<\/?b>/gi, '');
+
+/** 合并重叠/相邻区间 */
+function mergeRanges(rs) {
+  if (!rs.length) return [];
+  const sorted = [...rs].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const out = [sorted[0].slice()];
+  for (let i = 1; i < sorted.length; i++) {
+    const last = out[out.length - 1];
+    if (sorted[i][0] <= last[1]) last[1] = Math.max(last[1], sorted[i][1]);
+    else out.push(sorted[i].slice());
+  }
+  return out;
+}
+
+/** 找出 HTML 里被标记的字符区间（相对纯文本的偏移） */
+function markedRanges(html, isMarkOpen, isMarkClose) {
+  const ranges = [];
+  const stack = [];
+  let textPos = 0;
+  const re = /<[^>]+>|[^<]+/g;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    const tok = m[0];
+    if (tok[0] !== '<') {
+      textPos += tok.length;
+      continue;
+    }
+    if (isMarkOpen(tok)) stack.push(textPos);
+    else if (isMarkClose(tok)) {
+      const s = stack.pop();
+      if (s !== undefined) ranges.push([s, textPos]);
+    }
+  }
+  return ranges;
+}
+
+const webRangesOf = (desc) =>
+  mergeRanges(
+    markedRanges(
+      renderDesc(desc),
+      (t) => /^<span class="(kw|card-name-ref|quoted)">$/.test(t),
+      (t) => t === '</span>',
+    ),
+  );
+
+const boldRangesOf = (desc) =>
+  mergeRanges(
+    markedRanges(
+      String(desc ?? ''),
+      (t) => t === '<b>',
+      (t) => t === '</b>',
+    ),
+  );
 
 /** 递归列出两个对象所有不同的路径 */
 function diffPaths(a, b, prefix = '', out = []) {
@@ -186,8 +275,8 @@ ok(
 );
 ok('技能条数与网页一致', (obj?.baseInfo?.skills ?? []).length === (full?.cards?.[0]?.skills ?? []).length);
 ok(
-  '技能名与描述逐条一致',
-  JSON.stringify((obj?.baseInfo?.skills ?? []).map((s) => [s.name, s.desc])) ===
+  '技能名与描述逐条一致（剥掉加粗标记后）',
+  JSON.stringify((obj?.baseInfo?.skills ?? []).map((s) => [s.name, stripB(s.desc)])) ===
     JSON.stringify((full?.cards?.[0]?.skills ?? []).map((s) => [s.name, s.desc])),
 );
 
@@ -256,6 +345,52 @@ if (!otherK) {
     String(o3.renderConfig.items.kingdom.singlePresetGlyphKey),
   );
 }
+
+/* ------------------------------------------------------------------ */
+console.log('\n[10] 专名加粗（导出的 <b>）');
+
+const skillsOut = obj?.baseInfo?.skills ?? [];
+const skillsWeb = full?.cards?.[0]?.skills ?? [];
+const allDesc = skillsOut.map((s) => s.desc).join('\n');
+
+const openCount = (allDesc.match(/<b>/g) ?? []).length;
+const closeCount = (allDesc.match(/<\/b>/g) ?? []).length;
+ok('加粗标记成对', openCount === closeCount && openCount > 0, `<b>×${openCount} </b>×${closeCount}`);
+ok('没有嵌套 <b><b>', !allDesc.includes('<b><b>'), allDesc.slice(0, 120));
+ok('没有空的 <b></b>', !/<b><\/b>/.test(allDesc));
+ok('没有残留的老标记 <bi>', !/<bi>/i.test(allDesc));
+ok(
+  '预览里的加粗处数与产物一致',
+  single?.bold?.count === openCount,
+  `预览 ${single?.bold?.count} / 产物 ${openCount}`,
+);
+ok('预览给了加粗样例', Array.isArray(single?.bold?.samples) && single.bold.samples.length > 0);
+
+// 核心：网页上标色的位置，必须和导出时加粗的位置一一对应
+let rangeOk = true;
+let rangeDetail = '';
+for (let i = 0; i < skillsOut.length; i++) {
+  const web = skillsWeb[i]?.desc ?? '';
+  const a = JSON.stringify(webRangesOf(web));
+  const b = JSON.stringify(boldRangesOf(skillsOut[i]?.desc ?? ''));
+  if (a !== b) {
+    rangeOk = false;
+    rangeDetail = `第 ${i + 1} 条「${skillsOut[i]?.name}」：网页 ${a} vs 导出 ${b}`;
+    break;
+  }
+}
+ok('加粗位置与网页标色位置完全一致', rangeOk, rangeDetail);
+
+// 反复导出必须得到同样的字节，否则每次导出都会「变化」
+const again = await getRaw(`api/shap/${encodeURIComponent(withShapChar.dir)}?card=0`);
+ok('连续两次导出字节完全相同（幂等）', Buffer.compare(dl.buf, again.buf) === 0);
+
+// 数据文件本身不该出现 <b> —— 加粗只在导出时发生
+ok(
+  '网页原文里没有 <b>（加粗只发生在导出产物里）',
+  !/<b>/i.test(JSON.stringify(skillsWeb)),
+  (JSON.stringify(skillsWeb).match(/<b>/gi) ?? []).join(','),
+);
 
 /* ------------------------------------------------------------------ */
 console.log(`\n通过 ${pass}/${pass + fail}`);
