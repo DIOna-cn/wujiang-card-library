@@ -876,6 +876,29 @@
      远程同步：上传 / 下载 / 轮询
      ================================================================ */
 
+  /** 秒数说人话。同步跑几分钟是常事，一直报「247 秒」看着累 */
+  const fmtSecs = (n) => (n < 60
+    ? `${n} 秒`
+    : `${Math.floor(n / 60)} 分 ${String(n % 60).padStart(2, '0')} 秒`);
+
+  /**
+   * 秒表。
+   *
+   * 光靠轮询的话，最快也要 700 毫秒才跳一次，数字看着一顿一顿的。这个每 500 毫秒
+   * 只改一个文本节点、**不重建 DOM** —— 重建会把正在看的步骤清单刷没。
+   * 元素消失（任务结束、面板重画）时自己停掉，不用外面管。
+   */
+  let syncTicker = 0;
+  function startSyncTicker() {
+    if (syncTicker) return;
+    syncTicker = setInterval(() => {
+      const el = document.querySelector('#syncBox [data-elapsed]');
+      if (!el) { clearInterval(syncTicker); syncTicker = 0; return; }
+      const t0 = Number(el.dataset.elapsed) || 0;
+      if (t0) el.textContent = fmtSecs(Math.max(0, Math.round((Date.now() - t0) / 1000)));
+    }, 500);
+  }
+
   /** 把服务端返回的 sync 状态存下来，并只重画侧栏那一小块（不整页重渲染，免得闪） */
   function applySync(data) {
     if (!data) return;
@@ -906,7 +929,8 @@
     if (s.busy) {
       cls = 'busy';
       txt = s.op === 'upload' ? '正在上传…' : s.op === 'download' ? '正在下载…' : '正在检查…';
-      sub = s.step || '';
+      // 具体走到哪一步由下面的进度区说；在这里再写一遍就是同一句话说两遍
+      sub = '';
     } else if (s.error) {
       cls = 'err';
       txt = '同步出错';
@@ -928,6 +952,12 @@
     } else if (st.hasLocalChanges) {
       cls = 'warn';
       txt = `有 ${st.localDiffCount} 处改动未上传`;
+    } else if (st.ahead > 0) {
+      // 下载碰上分叉会在本地留下一个 merge commit，那一笔远端还没有。
+      // 不说出来的话这里会显示「已是最新」，而远端其实缺了它 —— 得点「上传」。
+      cls = 'warn';
+      txt = `有 ${st.ahead} 个提交没上传`;
+      sub = `本地 ${st.localHead} → 远端 ${st.remoteHead}`;
     } else {
       cls = 'ok';
       txt = '已是最新';
@@ -967,8 +997,33 @@
     </div>`);
 
     // ---- 进度 ----
+    // 清单先算出来：当前那一步在清单里已经有了，进度条下面就不用再写一遍
+    const stepList = Array.isArray(s.steps) ? s.steps : [];
     if (s.busy) {
-      parts.push(`<div class="sync-progress"><div class="bar"></div>${esc(s.step || '处理中…')}</div>`);
+      const pct = Math.max(0, Math.min(100, Math.round(Number(s.percent) || 0)));
+      const secs = s.startedAt ? Math.max(0, Math.round((Date.now() - s.startedAt) / 1000)) : 0;
+      parts.push(`<div class="sync-progress">
+        <div class="p-track"><i style="width:${pct}%"></i></div>
+        <div class="p-head">
+          <span class="p-pct">${pct}%</span>
+          <span class="p-elapsed" data-elapsed="${Number(s.startedAt) || 0}">${esc(fmtSecs(secs))}</span>
+        </div>
+        ${(!stepList.length && s.step) ? `<div class="p-step">${esc(s.step)}</div>` : ''}
+        ${s.detail ? `<div class="p-detail">${esc(s.detail)}</div>` : ''}
+      </div>`);
+      startSyncTicker();
+    }
+
+    // ---- 步骤清单 ----
+    // 跑的时候实时看走到哪一步了；出错时也留着，好知道是卡在哪一步上。
+    if (stepList.length && (s.busy || s.error)) {
+      const rows = stepList.map((t, i) => {
+        const last = i === stepList.length - 1;
+        const cls = last ? (s.busy ? 'now' : 'err') : 'done';
+        const mk = last ? (s.busy ? '⟳' : '✗') : '✓';
+        return `<li class="${cls}"><span class="mk">${mk}</span><span class="t">${esc(t)}</span></li>`;
+      }).join('');
+      parts.push(`<ol class="sync-steps">${rows}</ol>`);
     }
 
     // ---- 错误 / 提示 ----
@@ -1056,30 +1111,42 @@
       state.syncBusySelf = true;
       const r = await api(`/api/sync/${op}`, { method: 'POST' });
       if (r.busy) { toast('已经有一个同步任务在跑'); return; }
-      state.sync = { ...(state.sync ?? {}), busy: true, op, step: '正在开始…' };
+      // 把上一次的残留清掉，否则新任务刚开始会先闪一下上一轮的百分比和步骤清单
+      state.sync = {
+        ...(state.sync ?? {}),
+        busy: true, op, step: '正在开始…',
+        steps: [], percent: 0, detail: '', phase: '',
+        startedAt: Date.now(), error: '', hint: '', result: null,
+      };
       renderSyncBox();
-      // 立刻开始快轮询
-      pollFast(24);
+      // 立刻开始快轮询，一直跟到任务结束
+      pollFast();
     } catch (err) {
       state.syncBusySelf = false;
       toast(`${label}失败：${err.message}`, 'err');
     }
   }
 
-  /** 密集轮询一段时间（同步任务进行中） */
-  function pollFast(times) {
+  /**
+   * 任务在跑的时候密集轮询。
+   *
+   * 原来这里写死了「最多 24 次、每次间隔 900 毫秒」—— 也就是 21 秒就收工。
+   * 可上传一百多 MB 常要几分钟，21 秒之后进度就再也不刷新了，那行字永远停在
+   * 同一句上，看着跟卡死一样（这是真发生过的事）。现在跟着 busy 走，
+   * 只在超过上限时兜底退出，避免万一服务端状态没清干净就把页面一直轮询下去。
+   */
+  function pollFast(maxMs = 20 * 60 * 1000) {
     clearTimeout(state.syncTimer);
-    let n = 0;
+    const until = Date.now() + maxMs;
     const tick = async () => {
       await refreshSync();
-      n++;
-      if (state.sync?.busy && n < times) {
-        state.syncTimer = setTimeout(tick, 900);
+      if (state.sync?.busy && Date.now() < until) {
+        state.syncTimer = setTimeout(tick, 700);
       } else {
         scheduleSyncPoll();
       }
     };
-    state.syncTimer = setTimeout(tick, 700);
+    state.syncTimer = setTimeout(tick, 400);
   }
 
   /** 常态轮询：按服务端配置的间隔（默认 60 秒），页面隐藏时不跑 */

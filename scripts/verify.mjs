@@ -331,41 +331,56 @@ async function main() {
   // 记录原始值，改名加一个标记时间戳
   const stamp = `验证${Date.now() % 100000}`;
   const before = await evaluate(`document.querySelector('#drawerBody [data-field="legendId"]').value`);
-  await evaluate(`(() => {
-    const el = document.querySelector('#drawerBody [data-field="note"]');
-    el.value = '（无头验证写入：${stamp}）';
-    el.dispatchEvent(new Event('input', { bubbles: true }));
-    return true;
-  })()`);
-  await sleep(200);
 
-  const dirtyState = await evaluate(`({
-    dirty: document.querySelector('#saveState').classList.contains('dirty'),
-    saveDisabled: document.querySelector('#btnSave').disabled,
-  })`);
-  ok('修改后标记为脏 / 保存可用', dirtyState.dirty && !dirtyState.saveDisabled, JSON.stringify(dirtyState));
-
-  await evaluate(`document.querySelector('#btnSave').click()`);
-  await sleep(1600);
-
-  const afterSave = await evaluate(`({
-    saveState: document.querySelector('#saveState').textContent,
-    editing: !!document.querySelector('#drawerBody .skill-item'),
-    noteShown: document.querySelector('#drawerBody').innerText.includes('${stamp}'),
-  })`);
-  ok('保存并回到查看态', !afterSave.editing && afterSave.noteShown,
-    `状态="${afterSave.saveState}"，备注已显示=${afterSave.noteShown}`);
-
-  // 直接从磁盘校验
+  // 下面这一步会真的编辑一个真实武将（端到端自检必须走真数据），所以先把它的
+  // **原始字节**扣下来，测完原样写回。
+  //
+  // 别改成「把 note 字段 replace 回去、再 JSON.stringify 一遍」：服务端保存时会把
+  // updatedAt 刷成当前时间，文件于是在仓库里永久多出一处「内容不同」。实测差的就是
+  // 这个时间戳 —— 后果是同步面板一直提示「有 1 处改动未上传」，点「上传」推上去的
+  // 只是一次毫无意义的 mtime 变动。
   const notePath = 'E:/Deepseek/素材/蓬莱山辉夜/武将.json';
-  const disk = JSON.parse(fs.readFileSync(notePath, 'utf8'));
-  ok('磁盘上的 武将.json 已更新', disk.note.includes(stamp), `note 字段包含标记：${disk.note.includes(stamp)}`);
+  const noteBackup = fs.readFileSync(notePath);
 
-  // 复原
-  disk.note = disk.note.replace(new RegExp(`\\n?（无头验证写入：${stamp}）`), '');
-  fs.writeFileSync(notePath, JSON.stringify(disk, null, 2) + '\n', 'utf8');
+  try {
+    await evaluate(`(() => {
+      const el = document.querySelector('#drawerBody [data-field="note"]');
+      el.value = '（无头验证写入：${stamp}）';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      return true;
+    })()`);
+    await sleep(200);
+
+    const dirtyState = await evaluate(`({
+      dirty: document.querySelector('#saveState').classList.contains('dirty'),
+      saveDisabled: document.querySelector('#btnSave').disabled,
+    })`);
+    ok('修改后标记为脏 / 保存可用', dirtyState.dirty && !dirtyState.saveDisabled, JSON.stringify(dirtyState));
+
+    await evaluate(`document.querySelector('#btnSave').click()`);
+    await sleep(1600);
+
+    const afterSave = await evaluate(`({
+      saveState: document.querySelector('#saveState').textContent,
+      editing: !!document.querySelector('#drawerBody .skill-item'),
+      noteShown: document.querySelector('#drawerBody').innerText.includes('${stamp}'),
+    })`);
+    ok('保存并回到查看态', !afterSave.editing && afterSave.noteShown,
+      `状态="${afterSave.saveState}"，备注已显示=${afterSave.noteShown}`);
+
+    // 直接从磁盘校验
+    const disk = JSON.parse(fs.readFileSync(notePath, 'utf8'));
+    ok('磁盘上的 武将.json 已更新', disk.note.includes(stamp), `note 字段包含标记：${disk.note.includes(stamp)}`);
+  } finally {
+    // 原样写回，一个字节都不差 —— 包括 updatedAt，那才是真正会留在仓库里的东西
+    fs.writeFileSync(notePath, noteBackup);
+  }
+
   const restored = JSON.parse(fs.readFileSync(notePath, 'utf8'));
-  ok('验证痕迹已复原', !restored.note.includes(stamp), `note 长度 ${restored.note.length}`);
+  const sameBytes = fs.readFileSync(notePath).equals(noteBackup);
+  ok('验证痕迹已复原，而且是字节级还原',
+    !restored.note.includes(stamp) && sameBytes,
+    `note 长度 ${restored.note.length}，字节一致=${sameBytes}`);
 
   console.log('\n—— 搜索 / 筛选 ——');
 

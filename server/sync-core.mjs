@@ -30,7 +30,7 @@ import path from 'node:path';
 import os from 'node:os';
 import net from 'node:net';
 import crypto from 'node:crypto';
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 
 /* ------------------------------------------------------------------ *
  * 收录规则：哪些文件进仓库
@@ -301,6 +301,137 @@ export async function git(args, { cwd, proxy = '', timeoutMs = 120000 } = {}) {
   });
 }
 
+/** git 进度行的中英对照；表里没有的原样显示 */
+const GIT_PHASE_TEXT = {
+  'Enumerating objects': '枚举对象',
+  'Counting objects': '统计对象',
+  'Compressing objects': '压缩对象',
+  'Writing objects': '发送对象',
+  'Receiving objects': '接收对象',
+  'Resolving deltas': '处理增量',
+  'Updating files': '更新文件',
+  'remote: Enumerating objects': '远端枚举对象',
+  'remote: Counting objects': '远端统计对象',
+  'remote: Compressing objects': '远端压缩对象',
+};
+
+/**
+ * 从 git 的一行输出里认出进度。
+ *
+ *   Receiving objects:  45% (1234/2741), 12.3 MiB | 2.1 MiB/s
+ *   remote: Compressing objects: 100% (3/3), done.
+ *
+ * 认不出就返回 null —— 调用方只对认出进度的行做处理，
+ * 报错行（`fatal: unable to access …`）不会因为长得像就被当成进度。
+ */
+export function parseGitProgress(line) {
+  const s = String(line || '').trim();
+  // 带 `://` 的一律不是进度，是报错里夹着的 URL。
+  // 这条挡在正则前面，是因为形如
+  //   fatal: unable to access 'https://github.com/x/y.git': ...
+  // 的行里既有冒号又有数字，光靠模式去认很容易误伤。
+  if (s.includes('://')) return null;
+  // 字符类里那个冒号是必须的：远端阶段的行长这样 ——
+  //   remote: Compressing objects: 100% (3/3), done.
+  // 有两个冒号，不允许跨过第一个就永远匹配不到。
+  const m = s.match(/^([A-Za-z][A-Za-z :]*?):\s+(\d{1,3})%(?:\s*\((\d+)\/(\d+)\))?/);
+  if (!m) return null;
+  const percent = Number(m[2]);
+  if (!Number.isFinite(percent)) return null;
+  const label = m[1].trim();
+  return {
+    label,
+    text: GIT_PHASE_TEXT[label] ?? label,
+    percent: Math.max(0, Math.min(100, percent)),
+    done: m[3] ? Number(m[3]) : 0,
+    total: m[4] ? Number(m[4]) : 0,
+    raw: s,
+  };
+}
+
+/**
+ * 跑一条 git 命令，并把 stderr 上的进度一行行读出来。
+ *
+ * 只有 push / fetch / pull 需要它：这几条命令会长时间往外吐进度，
+ * 而 git() 用的 execFile 是**跑完才有输出**，期间什么都看不到。
+ * 首次下载要把一百多 MB 拉下来，不看这个数进度条就只能干等。
+ *
+ * 非 tty 时 git 默认不出进度，所以调用方要显式带上 --progress。
+ */
+export async function gitStream(args, { cwd, proxy = '', timeoutMs = 600000, onProgress = null } = {}) {
+  const bin = await ensureGit();
+  if (!bin) return { ok: false, code: 'ENOENT', stdout: '', stderr: '', message: GIT_MISSING };
+
+  const full = [];
+  if (proxy) full.push('-c', `http.proxy=${proxy}`, '-c', `https.proxy=${proxy}`);
+  full.push(...args);
+
+  return new Promise((resolve) => {
+    let child;
+    try {
+      child = spawn(bin, full, {
+        cwd,
+        windowsHide: true,
+        env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GCM_INTERACTIVE: 'never' },
+      });
+    } catch (err) {
+      return resolve({ ok: false, code: err?.code ?? 'ERROR', stdout: '', stderr: '', message: err?.message || String(err) });
+    }
+
+    let stdout = '';
+    let stderr = '';
+    let timer = null;
+    let settled = false;
+
+    const finish = (r) => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      resolve(r);
+    };
+
+    if (timeoutMs > 0) {
+      timer = setTimeout(() => {
+        try { child.kill(); } catch { /* 忽略 */ }
+        finish({
+          ok: false, code: 'ETIMEDOUT', stdout, stderr,
+          message: `git 超过 ${Math.round(timeoutMs / 1000)} 秒没有响应，已中止`,
+        });
+      }, timeoutMs);
+    }
+
+    // 进度写在 stderr 上。git 用 \r 原地刷新，所以一"块"数据里可能塞了好几段，
+    // 按 \r 和 \n 一起切开；最后那段可能不完整，留在 buf 里等下一次数据。
+    let buf = '';
+    child.stderr?.on('data', (chunk) => {
+      const s = chunk.toString('utf8');
+      stderr += s;
+      if (!onProgress) return;
+      buf += s;
+      const segs = buf.split(/[\r\n]/);
+      buf = segs.pop() ?? '';
+      for (const seg of segs) {
+        const p = parseGitProgress(seg);
+        if (p) onProgress(p);
+      }
+    });
+    child.stdout?.on('data', (chunk) => { stdout += chunk.toString('utf8'); });
+
+    child.on('error', (err) => finish({
+      ok: false, code: err?.code ?? 'ERROR', stdout, stderr,
+      message: gitErrMessage(err, stderr, stdout),
+    }));
+
+    child.on('close', (code) => finish({
+      ok: code === 0,
+      code: code ?? 0,
+      stdout,
+      stderr,
+      message: code === 0 ? '' : (String(stderr).trim() || String(stdout).trim() || `git 退出码 ${code}`),
+    }));
+  });
+}
+
 /** 连不上时给的建议：先分清是「没有 git」还是「网络没通」，别让人往错的方向查 */
 export function fetchHint(msg, proxy = '') {
   if (String(msg || '').includes('找不到 git')) {
@@ -343,11 +474,17 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  * 直连 github 是间歇性的：ls-remote 这种小请求常常秒过，push 要传数据，
  * 更容易被掐断（实测一次卡满 21 秒超时，紧接着重试 3.9 秒就成功了）。
  * 被拒（远端有别人的新提交）不算连接问题，原样返回，交给调用方走合并逻辑。
+ *
+ * 这里用 gitStream 而不是 git：push 是全过程里最慢、最看运气的一段，
+ * 它自己会报 `Writing objects: 32% (500/1500)`，把那个数透出去，
+ * 进度条才是真的在动。也因此不能带 -q（git 只在没有 --quiet 时才认 --progress）。
  */
-async function pushWithRetry(work, branch, proxy, attempts = 3, onRetry = null) {
+async function pushWithRetry(work, branch, proxy, attempts = 3, onRetry = null, onProgress = null) {
   let last = null;
   for (let i = 1; i <= attempts; i++) {
-    last = await git(['push', '-q', '-u', 'origin', branch], { cwd: work, proxy, timeoutMs: 300000 });
+    last = await gitStream(['push', '--progress', '-u', 'origin', branch], {
+      cwd: work, proxy, timeoutMs: 300000, onProgress,
+    });
     if (last.ok || i === attempts || !CONN_ERR.test(last.message || '')) return last;
     if (onRetry) onRetry(i);
     await sleep(i * 2000);
@@ -536,26 +673,49 @@ export async function buildWorkSet({ project, assets, mode = DEFAULT_MODE, proje
 /**
  * 把项目按 workSet 同步到工作副本。
  * 会删掉「工作副本里有、workSet 里没有」的文件（git 那边需要真实的删除）。
+ *
+ * onProgress 报的是 { done, total, bytes, totalBytes }：文件数和字节数一起给，
+ * 因为这两件事对不上的时候（比如一个 50 MB 的卡图）只有字节数看得出还在动。
  */
-export async function syncToWork({ work, workSet, mode = DEFAULT_MODE }) {
+export async function syncToWork({ work, workSet, mode = DEFAULT_MODE, onProgress = () => {} }) {
   const copied = [];
   const removed = [];
+  const report = throttled(onProgress);
+
+  // 先量一遍总量：文件数 = 要清的 + 要写的；字节数只算要写的那些
+  const existing = await walk(work);
+  const items = await Promise.all([...workSet].map(async ([rel, src]) => {
+    let size = 0;
+    try { size = (await fsp.stat(src)).size; } catch { /* 读不到就不计入总量 */ }
+    return { rel, src, size };
+  }));
+  const totalBytes = items.reduce((a, b) => a + b.size, 0);
+  const total = existing.length + items.length;
+  let done = 0;
+  let bytes = 0;
 
   // 1) 先清理工作副本里多余的（素材与项目都算；.git* / 清单除外）
-  const existing = await walk(work);
   for (const f of existing) {
-    if (f.rel.startsWith('.git/')) continue;
-    if (['.gitattributes', '.gitignore', '.publish-manifest.json'].includes(f.rel)) continue;
-    if (!workSet.has(f.rel)) {
+    if (!f.rel.startsWith('.git/')
+      && !['.gitattributes', '.gitignore', '.publish-manifest.json'].includes(f.rel)
+      && !workSet.has(f.rel)) {
       await fsp.rm(f.abs, { force: true });
       removed.push(f.rel);
     }
+    done++;
+    report({ done, total, bytes, totalBytes, removed: removed.length, copied: copied.length });
   }
 
   // 2) 复制需要新增/更新的
-  for (const [rel, src] of workSet) {
-    if (await copyIfChanged(src, path.join(work, rel))) copied.push(rel);
+  for (const it of items) {
+    if (await copyIfChanged(it.src, path.join(work, it.rel))) copied.push(it.rel);
+    done++;
+    bytes += it.size;
+    report({ done, total, bytes, totalBytes, removed: removed.length, copied: copied.length });
   }
+
+  // 节流会把最后一次吞掉，收尾补一发，免得进度条永远差一格
+  onProgress({ done, total, bytes, totalBytes, removed: removed.length, copied: copied.length });
 
   // 3) 清空目录 + 生成工作副本的 .gitignore
   await pruneEmpty(path.join(work, '素材'));
@@ -596,7 +756,7 @@ export async function syncToWork({ work, workSet, mode = DEFAULT_MODE }) {
  * 项目代码（web/、server/、README 等）**不**写回：那会盖掉本地还没推上去的代码改动。
  * 只新增和更新，绝不删除 —— 远端少了个武将文件夹也不能让本地那份消失。
  */
-export async function writeDataBack({ work, project, assets }) {
+export async function writeDataBack({ work, project, assets, onProgress = () => {} }) {
   const files = (await walk(work)).filter((f) =>
     !f.rel.startsWith('.git/') &&
     !RE_SHAP.test(f.rel) &&
@@ -605,8 +765,13 @@ export async function writeDataBack({ work, project, assets }) {
   const updated = [];
   const added = [];
   const same = [];
+  const report = throttled(onProgress);
+  const total = files.length;
 
-  for (const f of files) {
+  // 用下标而不是自增计数器：下面有好几处 continue，计数容易和实际错开
+  for (const [i, f] of files.entries()) {
+    report({ done: i, total, updated: updated.length, added: added.length, current: f.rel });
+
     let dest;
     if (f.rel.startsWith('素材/')) dest = path.join(assets, f.rel.slice('素材/'.length));
     else if (f.rel.startsWith('.data/')) dest = path.join(project, f.rel);
@@ -628,11 +793,12 @@ export async function writeDataBack({ work, project, assets }) {
     (existed ? updated : added).push(f.rel);
   }
 
+  onProgress({ done: total, total, updated: updated.length, added: added.length, current: '' });
   return { updated, added, same, total: files.length };
 }
 
 /** 本地数据与工作副本的差异（不联网，纯比内容） */
-export async function diffLocalVsWork({ work, project, assets }) {
+export async function diffLocalVsWork({ work, project, assets, onProgress = () => {} }) {
   // 范围和 writeDataBack 保持一致，否则「差在哪」会和实际会不会写回对不上
   const files = (await walk(work)).filter((f) =>
     !f.rel.startsWith('.git/') &&
@@ -640,7 +806,11 @@ export async function diffLocalVsWork({ work, project, assets }) {
     (f.rel.startsWith('素材/') || isDataFile(f.rel))
   );
   const diffs = [];
-  for (const f of files) {
+  const report = throttled(onProgress);
+  const total = files.length;
+
+  for (const [i, f] of files.entries()) {
+    report({ done: i, total });
     let localSrc;
     if (f.rel.startsWith('素材/')) localSrc = path.join(assets, f.rel.slice('素材/'.length));
     else if (f.rel.startsWith('.data/')) localSrc = path.join(project, f.rel);
@@ -653,7 +823,134 @@ export async function diffLocalVsWork({ work, project, assets }) {
       }
     } catch { diffs.push({ rel: f.rel, kind: '读取失败' }); }
   }
+
+  onProgress({ done: total, total });
   return diffs;
+}
+
+/* ------------------------------------------------------------------ *
+ * 进度
+ *
+ * 上传 / 下载要跑几十秒到几分钟，中间既有大量文件复制，也有说不准的联网等待。
+ * 期间完全没有反馈的话，人只会以为卡死了，然后去点别的按钮 —— 那更糟。
+ * 下面这套东西负责把「走到哪了」变成进度条和一个步骤清单。
+ * ------------------------------------------------------------------ */
+
+/**
+ * 各阶段占进度条的份额（合计 100）。
+ *
+ * 不平均分：写文件那一段要复制一百多 MB，联网传输要等 github，这两段占大头；
+ * 准备和收尾几乎瞬间完成，分多了反而是假的。数字不必精确到秒，
+ * 进度条只要做到「看得出在往前走、不倒退」就够了。
+ */
+const PHASE_WEIGHT = {
+  prepare: 6,     // 建 / 检查工作副本
+  collect: 8,     // 扫出要同步的文件
+  copy: 46,       // 按文件写进工作副本
+  commit: 6,      // git add / commit
+  merge: 10,      // 和远端分叉时先合并
+  transfer: 16,   // push / pull（联网；阶段内部还有 git 自己的百分比）
+  writeback: 6,   // 把远端的数据写回项目
+  finish: 2,
+};
+
+/**
+ * 进度累加器。
+ *
+ * 只保证两件事：**只增不减**、**没真正跑完就不显示 100%**。
+ *
+ * 为什么必须夹住：上传撞上分叉时会多走一轮 merge + transfer，权重加起来会超过
+ * 100；不夹的话进度条能跑到 120% 再退回来，比没有进度条还糟。
+ *
+ * 回调签名是 onStep(text, info) —— 第一参数保持是字符串，和历史调用方兼容；
+ * 新的东西（百分比 / 阶段 / 步骤清单）都挂在 info 上。
+ */
+export function makeProgress(onStep = () => {}) {
+  const steps = [];
+  let acc = 0;          // 已经走过的阶段权重之和
+  let percent = 0;
+  let phase = '';
+  let detail = '';
+
+  const emit = () => {
+    try {
+      onStep(steps[steps.length - 1] ?? '', { percent, phase, detail, steps: [...steps] });
+    } catch { /* 回调出问题不该把同步本身带崩 */ }
+  };
+
+  /** 阶段内比例：没有量化数据时保持 0，进度条就停在阶段起点等文字更新 */
+  const frac = (done, total) => (
+    Number.isFinite(done) && Number.isFinite(total) && total > 0
+      ? Math.max(0, Math.min(1, done / total))
+      : 0
+  );
+
+  return {
+    /** 记一步：text 进步骤清单，phase 决定进度条往前推到哪 */
+    step(text, opt = {}) {
+      if (opt.phase && opt.phase !== phase) {
+        if (phase) acc += PHASE_WEIGHT[phase] ?? 0;
+        phase = opt.phase;
+      }
+      const w = PHASE_WEIGHT[phase] ?? 0;
+      percent = Math.max(percent, Math.min(95, Math.round(acc + w * frac(opt.done, opt.total))));
+      detail = opt.detail ?? '';
+      steps.push(text);
+      emit();
+    },
+
+    /**
+     * 阶段内推进。**不往清单里加行** —— 复制几百个文件如果一行一个，
+     * 清单会被刷成一堵墙。这里只更新百分比和进度条旁边那行小字。
+     */
+    tick(opt = {}) {
+      const w = PHASE_WEIGHT[phase] ?? 0;
+      percent = Math.max(percent, Math.min(95, Math.round(acc + w * frac(opt.done, opt.total))));
+      if (opt.detail !== undefined) detail = opt.detail;
+      emit();
+    },
+
+    /** 收尾：这时候才可以显示 100% */
+    done() {
+      percent = 100;
+      phase = 'finish';
+      detail = '';
+      emit();
+    },
+
+    get steps() { return steps; },
+    get percent() { return percent; },
+  };
+}
+
+/**
+ * 按时间节流。
+ *
+ * 进度回调会构造整个步骤清单再交给 HTTP 那一层存下来，几百个文件挨个报一次
+ * 纯属浪费 —— 而且前端最快 900 毫秒才轮询一次，报得再密也看不见。
+ */
+function throttled(fn, ms = 120) {
+  let last = 0;
+  return (arg) => {
+    const now = Date.now();
+    if (now - last < ms) return;
+    last = now;
+    fn(arg);
+  };
+}
+
+/** 进度条旁边那行小字：文件数 + 字节数（字节数更能反映大卡图的搬运） */
+export function fileDetail(p) {
+  const bits = [`${p.done} / ${p.total} 个文件`];
+  if (p.totalBytes > 0) bits.push(`${mb(p.bytes)} / ${mb(p.totalBytes)}`);
+  return bits.join(' · ');
+}
+
+/** git 自己报的传输进度，例如「接收对象 45%（1234 / 2741）」 */
+export function gitDetail(p) {
+  return p.total > 0
+    ? `${p.text} ${p.percent}%（${p.done} / ${p.total}）`
+    : `${p.text} ${p.percent}%`;
 }
 
 /* ------------------------------------------------------------------ *
@@ -685,21 +982,26 @@ export async function pushAll({
   project, assets, work, mode = DEFAULT_MODE, remote, branch = 'main',
   proxy = '', projectName = '', message = '', fallbackWork = '', onStep = () => {},
 }) {
-  const steps = [];
-  const step = (s) => { steps.push(s); onStep(s); };
+  const P = makeProgress(onStep);
+  const steps = P.steps;   // 返回给调用方的清单，和 P 内部是同一个数组
 
-  step('准备 git 工作副本…');
+  P.step('准备工作副本…', { phase: 'prepare' });
   const prep = await ensureRepo({ work, remote, branch, proxy, projectName, fallbackWork });
   work = prep.work;   // 回退过的话，下面每一处 work 都跟着走
-  if (prep.usedFallback) step(`原定的工作副本位置用不了（${prep.reason}），改用 ${work}`);
+  if (prep.usedFallback) {
+    P.step(`原定的工作副本位置用不了（${prep.reason}），改用 ${work}`, { phase: 'prepare' });
+  }
 
-  step('收集要同步的文件…');
+  P.step('收集要同步的文件…', { phase: 'collect' });
   const workSet = await buildWorkSet({ project, assets, mode, projectName });
 
-  step(`同步文件到工作副本（${workSet.size} 个）…`);
-  const { copied, removed } = await syncToWork({ work, workSet, mode });
+  P.step(`写入工作副本（共 ${workSet.size} 个文件）…`, { phase: 'copy' });
+  const { copied, removed } = await syncToWork({
+    work, workSet, mode,
+    onProgress: (p) => P.tick({ done: p.done, total: p.total, detail: fileDetail(p) }),
+  });
 
-  step('提交…');
+  P.step('提交…', { phase: 'commit' });
   await git(['add', '-A'], { cwd: work });
   const status = await git(['status', '--porcelain'], { cwd: work });
   const changes = status.stdout.trim() ? status.stdout.trim().split('\n').length : 0;
@@ -716,8 +1018,12 @@ export async function pushAll({
   // 合并前的 HEAD，用来列出「这次从远端带回来了哪些提交」
   const before = await localHead(work);
 
-  step('推送到远端…');
-  let p = await pushWithRetry(work, branch, proxy, 3, (i) => step(`第 ${i} 次没连上，${i * 2} 秒后重试…`));
+  P.step('推送到远端…', { phase: 'transfer' });
+  // git 自己会报 Writing objects 的百分比，把它映射进 transfer 这一段
+  const onTransfer = (g) => P.tick({ done: g.percent, total: 100, detail: gitDetail(g) });
+  let p = await pushWithRetry(work, branch, proxy, 3,
+    (i) => P.step(`第 ${i} 次没连上，${i * 2} 秒后重试…`, { phase: 'transfer' }),
+    onTransfer);
   let merged = false;
   let incoming = [];
   let back = null;
@@ -725,9 +1031,9 @@ export async function pushAll({
   if (!p.ok && isRejectedPush(p.message)) {
     // 远端有别人推的内容，两边分叉了。直接推会被拒，硬推会顶掉对方的武将，
     // 所以先把对方那份合进来、再推上去 —— 这样双方的武将都留下。
-    step('远端有别人的新内容，先合并…');
-    const m = await git(['pull', '--no-rebase', '--no-edit', 'origin', branch], {
-      cwd: work, proxy, timeoutMs: 300000,
+    P.step('远端有别人的新内容，先合并…', { phase: 'merge' });
+    const m = await gitStream(['pull', '--progress', '--no-rebase', '--no-edit', 'origin', branch], {
+      cwd: work, proxy, timeoutMs: 300000, onProgress: onTransfer,
     });
 
     if (!m.ok) {
@@ -758,11 +1064,14 @@ export async function pushAll({
     incoming = log.stdout.trim().split('\n').filter(Boolean).slice(0, 20);
 
     // 对方新建的武将是合并之后才出现在工作副本里的，写回项目才算真的「两边都有」
-    step('把合并来的数据写回本地…');
-    back = await writeDataBack({ work, project, assets });
+    P.step('把合并来的数据写回本地…', { phase: 'writeback' });
+    back = await writeDataBack({
+      work, project, assets,
+      onProgress: (w) => P.tick({ done: w.done, total: w.total, detail: `${w.done} / ${w.total} 个数据文件` }),
+    });
 
-    step('再次推送到远端…');
-    p = await pushWithRetry(work, branch, proxy, 2);
+    P.step('再次推送到远端…', { phase: 'transfer' });
+    p = await pushWithRetry(work, branch, proxy, 2, null, onTransfer);
   }
 
   if (!p.ok) {
@@ -770,7 +1079,7 @@ export async function pushAll({
     const headNow = await localHead(work);
     const rh = await remoteHead({ work, branch, proxy });
     if (rh.ok && rh.sha === headNow) {
-      step('推送时报了错，但远端已经是本地这个提交 —— 实际已成功');
+      P.step('推送时报了错，但远端已经是本地这个提交 —— 实际已成功', { phase: 'transfer' });
     } else {
       return {
         ok: false,
@@ -788,7 +1097,8 @@ export async function pushAll({
   const head = await localHead(work);
   const { ahead, behind } = await aheadBehind(work, branch);
 
-  step('完成');
+  P.step('完成', { phase: 'finish' });
+  P.done();
   return {
     ok: true, op: 'upload', steps, work,
     copied: copied.length, removed: removed.length, changes, committed,
@@ -806,13 +1116,15 @@ export async function pullAll({
   project, assets, work, mode = DEFAULT_MODE, remote, branch = 'main',
   proxy = '', projectName = '', fallbackWork = '', onStep = () => {},
 }) {
-  const steps = [];
-  const step = (s) => { steps.push(s); onStep(s); };
+  const P = makeProgress(onStep);
+  const steps = P.steps;
 
-  step('准备 git 工作副本…');
+  P.step('准备工作副本…', { phase: 'prepare' });
   const prep = await ensureRepo({ work, remote, branch, proxy, projectName, fallbackWork });
   work = prep.work;   // 回退过的话，下面每一处 work 都跟着走
-  if (prep.usedFallback) step(`原定的工作副本位置用不了（${prep.reason}），改用 ${work}`);
+  if (prep.usedFallback) {
+    P.step(`原定的工作副本位置用不了（${prep.reason}），改用 ${work}`, { phase: 'prepare' });
+  }
 
   const dirty = await workIsDirty(work);
   if (dirty.dirty) {
@@ -827,13 +1139,17 @@ export async function pullAll({
   const before = await localHead(work);
   const freshWork = !before;   // 全新工作副本：还没有任何本地提交
 
-  step('从远端拉取…');
+  P.step('从远端拉取…', { phase: 'transfer' });
+  // 首次下载要拉一百多 MB，git 的 Receiving objects 百分比就是这里的进度
+  const onTransfer = (g) => P.tick({ done: g.percent, total: 100, detail: gitDetail(g) });
   let r;
   if (freshWork) {
     // 空仓库直接 `git pull` 会因为"没有当前分支的上游"或不知道往哪合并而失败，
     // 所以先 fetch 再对齐到远端。这一步只动工作副本，不碰项目目录。
-    step('工作副本是空的，先取回远端内容…');
-    const f = await git(['fetch', '--quiet', 'origin', branch], { cwd: work, proxy, timeoutMs: 300000 });
+    P.step('工作副本是空的，正在取回远端内容…', { phase: 'transfer' });
+    const f = await gitStream(['fetch', '--progress', 'origin', branch], {
+      cwd: work, proxy, timeoutMs: 300000, onProgress: onTransfer,
+    });
     if (!f.ok) {
       return {
         ok: false,
@@ -842,12 +1158,17 @@ export async function pullAll({
         steps,
       };
     }
+    // fetch 只把对象取进 .git，铺成工作区里的文件是这一步做的事；
+    // 一百多 MB 铺开也要一会儿，给一句话，否则这期间界面上什么都不动
+    P.step('把取回的内容铺开…', { phase: 'transfer' });
     r = await git(['reset', '--hard', 'FETCH_HEAD'], { cwd: work });
   } else {
     // 用 merge 而不是 --ff-only：本地可能已经有自己提交好、但还没推上去的东西，
     // 这时 --ff-only 会直接失败，两边都同步不了，人就卡住了。
     // 双方改的不是同一个文件时 git 会自己合好；没有分叉时它就等同于快进。
-    r = await git(['pull', '--no-rebase', '--no-edit', 'origin', branch], { cwd: work, proxy, timeoutMs: 300000 });
+    r = await gitStream(['pull', '--progress', '--no-rebase', '--no-edit', 'origin', branch], {
+      cwd: work, proxy, timeoutMs: 300000, onProgress: onTransfer,
+    });
   }
   if (!r.ok) {
     const mergeOut = `${r.message}\n${r.stdout}`;
@@ -878,16 +1199,25 @@ export async function pullAll({
     commits = log.stdout.trim().split('\n').filter(Boolean).slice(0, 20);
   }
 
-  step('把数据写回项目…');
-  const back = await writeDataBack({ work, project, assets });
+  P.step('把数据写回项目…', { phase: 'writeback' });
+  const back = await writeDataBack({
+    work, project, assets,
+    onProgress: (w) => P.tick({ done: w.done, total: w.total, detail: `${w.done} / ${w.total} 个数据文件` }),
+  });
 
-  const diffs = await diffLocalVsWork({ work, project, assets });
+  // 写回之后再比一遍本地和副本的差异。这一步要算哈希，文件多的时候能有几秒，
+  // 期间进度条停着会像卡住 —— 所以它也报进度（比例落在 writeback 这一段里）
+  const diffs = await diffLocalVsWork({
+    work, project, assets,
+    onProgress: (d) => P.tick({ done: d.done, total: d.total, detail: `核对 ${d.done} / ${d.total} 个文件` }),
+  });
 
   // 合并之后本地可能反过来领先远端（自己那个提交还没推上去），
   // 网页得把这件事说出来，否则用户会以为已经同步完了
   const { ahead } = await aheadBehind(work, branch);
 
-  step('完成');
+  P.step('完成', { phase: 'finish' });
+  P.done();
   return {
     ok: true, op: 'download', steps, work, changed, commits, before, after,
     updated: back.updated, added: back.added, same: back.same,
@@ -902,8 +1232,11 @@ export async function pullAll({
  */
 export async function checkStatus({
   project, assets, work, mode = DEFAULT_MODE, remote, branch = 'main',
-  proxy = '', projectName = '',
+  proxy = '', projectName = '', onStep = () => {},
 }) {
+  const P = makeProgress(onStep);
+
+  P.step('准备工作副本…', { phase: 'prepare' });
   // 只配 remote / 代理，不建目录、不动历史 —— 轮询很频繁，不能每次都造工作副本
   const { ready } = await ensureRemoteOnly({ work, remote, branch, proxy });
 
@@ -920,6 +1253,7 @@ export async function checkStatus({
     };
   }
 
+  P.step('查询远端…', { phase: 'transfer' });
   const local = await localHead(work);
   // 只等 12 秒（默认 30 秒太久了）：这个接口一分钟轮询一次，这次没连上下次就补上了。
   // 与其让面板一直转，不如快点说「这次没连上」。真正值得重试的是 push。
@@ -934,20 +1268,53 @@ export async function checkStatus({
   }
 
   // 本地项目里有没有还没同步进工作副本的东西（只看数据文件，很快）
-  const diffs = await diffLocalVsWork({ work, project, assets });
-  const { ahead, behind } = await aheadBehind(work, branch);
+  P.step('核对本地数据…', { phase: 'writeback' });
+  const diffs = await diffLocalVsWork({
+    work, project, assets,
+    onProgress: (d) => P.tick({ done: d.done, total: d.total, detail: `核对 ${d.done} / ${d.total} 个文件` }),
+  });
+
+  // 光比「两个 sha 相不相等」是不够的，得先分清是谁领先谁。
+  //
+  // 下载碰上分叉时会生成一个 merge commit，本地 HEAD 从此和远端 sha 永远不同。
+  // 原来的写法（不相等就算「远端有新内容」）于是让面板一直挂着「远端有新内容」，
+  // 其实远端那一笔早就合进来了 —— 再点多少次下载都不会消（实际踩到的就是这个）。
+  //
+  // 反过来的误导同样存在：本地有提交没推上去时两个 sha 也不相等，
+  // 而面板会说「已是最新」。
+  //
+  // 所以这里问一句「远端那个提交，我这儿已经有了吗」，再数一下本地独有的提交。
+  let remoteMerged = false;   // 远端当前这个提交，本地已经包含
+  let aheadReal = 0;          // 本地有多少提交是远端没有的
+  if (rh.sha && rh.sha !== local) {
+    // 不是祖先、或者本地压根没有这个对象，都会返回非 0 —— 两种都算「远端确实有我没有的」
+    const anc = await git(['merge-base', '--is-ancestor', rh.sha, 'HEAD'], { cwd: work });
+    remoteMerged = anc.ok;
+    if (remoteMerged) {
+      // 用远端当前 sha 当基准，比读本地缓存的 refs/remotes/origin/* 准
+      // —— 那个 ref 只在 fetch / pull 时才更新，轮询几十次它也不会动
+      const cnt = await git(['rev-list', '--count', `${rh.sha}..HEAD`], { cwd: work });
+      aheadReal = cnt.ok ? (Number(cnt.stdout.trim()) || 0) : 0;
+    }
+  }
+
+  P.step('完成', { phase: 'finish' });
+  P.done();
 
   return {
     ok: true, reachable: true, initialized: true,
     localHead: local.slice(0, 7),
     remoteHead: rh.sha.slice(0, 7),
-    // 空仓库时本地 head 是空，此时远端有东西也算"有新内容"
-    hasRemoteUpdate: !!rh.sha && rh.sha !== local,
+    // 空仓库时本地 head 是空，此时远端有东西也算「有新内容」
+    hasRemoteUpdate: !!rh.sha && rh.sha !== local && !remoteMerged,
     // 本地数据文件与工作副本不同 → 有没上传的改动
     hasLocalChanges: diffs.length > 0,
     localDiffCount: diffs.length,
     localDiffSample: diffs.slice(0, 8),
-    ahead, behind,
+    ahead: aheadReal,
+    // 只作形状保留：落后几个提交要沿远端历史数，本地没有那些对象就算不出来，
+    // 所以这里只给「有没有落后」这个粗结论，精确值由 hasRemoteUpdate 表达
+    behind: remoteMerged || !rh.sha ? 0 : 1,
     work,
   };
 }

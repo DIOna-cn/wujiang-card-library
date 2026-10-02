@@ -130,8 +130,13 @@ const syncState = {
   lastCheckAt: 0,
   busy: false,
   op: '',                  // '' | 'check' | 'upload' | 'download'
-  step: '',
-  steps: [],
+  step: '',                // 当前正在做的那一步（一句话）
+  steps: [],               // 到目前为走过的所有步骤，前端画成清单
+  percent: 0,              // 0-100；没真正跑完不会到 100
+  detail: '',              // 进度条旁边的小字，例如「132 / 270 个文件 · 87.3 MB / 163.6 MB」
+  phase: '',               // 当前阶段名，前端用来判断是不是在联网等
+  startedAt: 0,            // 任务开始的时刻；前端拿它跑秒表
+  endedAt: 0,
   error: '',
   hint: '',
   result: null,
@@ -215,10 +220,30 @@ function queueSync(op) {
     syncState.op = op;
     syncState.steps = [];
     syncState.step = '';
+    syncState.percent = 0;
+    syncState.detail = '';
+    syncState.phase = '';
+    syncState.startedAt = Date.now();
+    syncState.endedAt = 0;
     syncState.error = '';
     syncState.hint = '';
     syncState.result = null;
-    const onStep = (s) => { syncState.step = s; syncState.steps.push(s); };
+
+    /**
+     * 收 sync-core 报上来的进度。
+     *
+     * 第一参数仍是那句话（保持和历史调用方一致），真正的百分比 / 阶段 / 清单
+     * 都挂在第二参数上。清单在这里是**整体替换**而不是 push —— sync-core 那边
+     * 已经维护好了顺序和去重，两边各 push 一次会变成每步两行。
+     */
+    const onStep = (s, info) => {
+      if (s) syncState.step = s;
+      if (!info) return;
+      if (Array.isArray(info.steps)) syncState.steps = info.steps;
+      if (Number.isFinite(info.percent)) syncState.percent = info.percent;
+      syncState.detail = info.detail ?? '';
+      syncState.phase = info.phase ?? '';
+    };
 
     const common = {
       project: ROOT,
@@ -258,15 +283,17 @@ function queueSync(op) {
         syncState.result = r;
         if (!r.ok) { syncState.error = r.error; syncState.hint = r.hint || ''; }
         await rememberWork(r);
-        // 上传完顺手刷一次状态
-        syncState.lastStatus = await syncCore.checkStatus(common);
+        // 上传完顺手刷一次状态。
+        // onStep 要换成空的：这次检查只是收尾，让它往 syncState 里写的话，
+        // 会把刚跑完的那份步骤清单换成「检查」的几步，前端看到的就是一片空白。
+        syncState.lastStatus = await syncCore.checkStatus({ ...common, onStep: () => {} });
         syncState.lastCheckAt = Date.now();
       } else if (op === 'download') {
         const r = await syncCore.pullAll(common);
         syncState.result = r;
         if (!r.ok) { syncState.error = r.error; syncState.hint = r.hint || ''; }
         await rememberWork(r);
-        syncState.lastStatus = await syncCore.checkStatus(common);
+        syncState.lastStatus = await syncCore.checkStatus({ ...common, onStep: () => {} });
         syncState.lastCheckAt = Date.now();
       }
     } catch (err) {
@@ -275,10 +302,39 @@ function queueSync(op) {
       syncState.busy = false;
       syncState.op = '';
       syncState.step = '';
+      syncState.endedAt = Date.now();
     }
   };
   syncChain = syncChain.then(run, run);
   return syncChain;
+}
+
+/**
+ * 给前端的同步状态快照。
+ *
+ * 两个接口都用它：/api/sync/status（轮询进度）和 /api/characters（顺带带一份，
+ * 省得页面加载时为了画那几个按钮再发一次请求）。写成函数是为了以后加字段时
+ * 只改一处 —— 两处各写一遍的话，迟早会有一边漏掉。
+ */
+function syncSnapshot() {
+  return {
+    busy: syncState.busy,
+    op: syncState.op,
+    step: syncState.step,
+    steps: syncState.steps,
+    percent: syncState.percent,
+    detail: syncState.detail,
+    phase: syncState.phase,
+    startedAt: syncState.startedAt,
+    endedAt: syncState.endedAt,
+    error: syncState.error,
+    hint: syncState.hint,
+    lastCheckAt: syncState.lastCheckAt,
+    status: syncState.lastStatus,
+    result: syncState.result,
+    config: syncConfig,
+    remote: parseRemoteInfo(syncConfig.remote, syncConfig.branch),
+  };
 }
 
 /* ------------------------------------------------------------------ *
@@ -776,17 +832,7 @@ async function handleApi(req, res, pathname, query) {
       directoryOrigins: tagFile.origins,
       characters: chars,
       // 顺带把同步状态带上，省得前端为了画那几个按钮再多发一次请求
-      sync: {
-        busy: syncState.busy,
-        op: syncState.op,
-        step: syncState.step,
-        error: syncState.error,
-        hint: syncState.hint,
-        lastCheckAt: syncState.lastCheckAt,
-        status: syncState.lastStatus,
-        result: syncState.result,
-        config: syncConfig,
-      },
+      sync: syncSnapshot(),
     });
   }
 
@@ -899,19 +945,7 @@ async function handleApi(req, res, pathname, query) {
 
   /* ---------- 远端同步（上传 / 下载 / 轮询） ---------- */
   if (pathname === '/api/sync/status' && method === 'GET') {
-    return sendJson(res, 200, {
-      config: syncConfig,
-      busy: syncState.busy,
-      op: syncState.op,
-      step: syncState.step,
-      steps: syncState.steps,
-      error: syncState.error,
-      hint: syncState.hint,
-      lastCheckAt: syncState.lastCheckAt,
-      status: syncState.lastStatus,
-      result: syncState.result,
-      remote: parseRemoteInfo(syncConfig.remote, syncConfig.branch),
-    });
+    return sendJson(res, 200, syncSnapshot());
   }
 
   if (pathname === '/api/sync/config' && method === 'PUT') {

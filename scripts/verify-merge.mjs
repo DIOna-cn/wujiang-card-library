@@ -12,7 +12,7 @@ import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { pushAll, pullAll } from '../server/sync-core.mjs';
+import { pushAll, pullAll, checkStatus } from '../server/sync-core.mjs';
 
 let pass = 0;
 let fail = 0;
@@ -137,6 +137,14 @@ try {
   await makeGeneral(path.join(him, '素材'), '他新建的D');
   himCommitPush('他新建了 D');
 
+  // 下载之前：两边是真的分叉了，这时必须报「远端有新内容」
+  const stBefore = await checkStatus({
+    project: proj, assets, work: mine, mode: 'data',
+    remote: remoteUrl, branch: 'main', proxy: '',
+  });
+  ok('下载前确实报「远端有新内容」', stBefore.hasRemoteUpdate === true,
+    `local=${stBefore.localHead} remote=${stBefore.remoteHead}`);
+
   const pr = await pullAll({
     project: proj, assets, work: mine, mode: 'data',
     remote: remoteUrl, branch: 'main', proxy: '',
@@ -146,6 +154,18 @@ try {
   ok('下载把他新建的 D 带回了本地素材', await exists(path.join(assets, '他新建的D', '武将.json')));
   ok('我原先建的两个武将没有丢', (await exists(path.join(assets, '我新建的A', '武将.json')))
     && (await exists(path.join(assets, '他新建的B', '武将.json'))));
+
+  console.log('\n[6b] 下载合出 merge commit 之后，那句「远端有新内容」必须消掉');
+  // 这是实际踩到的问题：分叉下载会生成一个 merge commit，本地 HEAD 和远端 sha
+  // 从此永远不同。旧判断只看「两个 sha 相不相等」，于是那句「远端有新内容」
+  // 点多少次下载都消不掉 —— 人只会以为下载根本没成功。
+  const stAfter = await checkStatus({
+    project: proj, assets, work: mine, mode: 'data',
+    remote: remoteUrl, branch: 'main', proxy: '',
+  });
+  ok('下载后不再说「远端有新内容」', stAfter.hasRemoteUpdate === false,
+    `local=${stAfter.localHead} remote=${stAfter.remoteHead}`);
+  ok('而是改成说清楚「本地有 N 个提交没上传」', stAfter.ahead >= 1, 'ahead=' + String(stAfter.ahead));
 
   console.log('\n[7] 两边改同一个文件的同一处：必须报冲突，而且不能丢数据');
   himPull();   // 他先同步到最新，手上才有 A 这个文件
