@@ -968,6 +968,12 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   color: var(--info);
   font-weight: 600;
 }
+/* 引号括起来的内容（「神宝」、“魂”、“迷彩-基本”…）——
+   和【牌名】的蓝、技能类型词的金分开，一眼能认出这是被作者加引号的专名 */
+.skill-view .sv-desc .quoted,
+.extra-desc .quoted {
+  color: #c9a0dc;
+}
 .tag-mini {
   padding: 0 6px;
   border-radius: 4px;

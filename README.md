@@ -58,6 +58,8 @@ powershell -ExecutionPolicy Bypass -File .\start.ps1
 
 **衍生技**在技能列表里单独一种外观：整体缩进 + 左侧虚线 + 名字前带「衍生」角标，颜色偏青，和本体技能一眼可分（卡面的技能小片也用虚线青色 + 空心点标记）。
 
+技能描述里的三类东西会自动上色，方便一眼扫读：**技能类型词**（锁定技 / 觉醒技 / 转换技…）金色、**【牌名】**蓝色、**引号里的专名**（「神宝」、“魂”、“摄影车”、“迷彩-基本”…）紫色。引号认全角的 `「」『』“”‘’` 和半角的 `""`（半角只认成对的双引号，`it's` 这种撇号不会被误伤）；引号不成对、空引号、或括了 40 字以上的都不标，免得把整段吞掉。上色只影响显示，`武将.json` 里的原文一个字都不动。
+
 ### 编写 / 修改
 1. 点开一个武将 → 右上角 **「编辑」**
 2. 改基本信息（含**原作**）、卡图文件名、技能名与技能描述、**标签**；技能可增删、上下移、标为衍生技
@@ -244,6 +246,7 @@ node scripts\verify-sync.mjs       # 同步面板：三个按钮、状态、设�
 node scripts\verify-merge.mjs      # 双方各自新建武将时能自动合并（用本地 bare 仓库，不联网）
 node scripts\verify-download-assets.mjs  # 「下载」会把图片写回；.shap 和代码文件不写回
 node scripts\verify-shap-export.mjs      # 导出为 shap：只覆盖文字，renderConfig 与内嵌立绘一字不动
+node scripts\verify-desc-render.mjs      # 技能描述渲染：引号标色、【牌名】/类型词高亮、转义安全（纯函数，秒出）
 node scripts\check-migration.mjs   # 比对旧描述与新 JSON 的差异
 node scripts\shots.mjs             # 抓界面截图
 ```
