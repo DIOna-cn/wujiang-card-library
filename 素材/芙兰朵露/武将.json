@@ -8,29 +8,34 @@
   "schema": 1,
   "name": "芙兰朵露",
   "title": "恶魔之妹",
-  "kingdom": "",
+  "kingdom": "shu",
   "hp": 3,
   "maxHp": 3,
   "shield": 0,
   "gender": "",
   "quality": "epic",
-  "legendId": "",
+  "legendId": "TH 003",
   "quote": "",
   "copyright": "",
   "isLord": false,
-  "origin": "",
+  "origin": "东方Project",
   "tags": [],
   "note": "",
   "cards": [
     {
       "name": "",
-      "image": "",
+      "image": "立绘.jpg",
       "cardImage": "",
       "legendId": "",
-      "skills": [],
+      "skills": [
+        {
+          "name": "破坏",
+          "desc": "每名角色的出牌阶段开始时，其需将一张手牌置于手牌上称为“目”。\n当你使用能造成伤害的牌指定目标后，你可以弃置至少1张与目标“目”对应的手牌并弃置对应的目，令此【杀】不可响应，若你以此法弃置至少1/2/3张牌，你令此牌获得以下效果："
+        }
+      ],
       "derived": []
     }
   ],
   "extras": [],
-  "updatedAt": "2026-10-02T00:27:53.353Z"
+  "updatedAt": "2026-10-02T00:45:09.472Z"
 }

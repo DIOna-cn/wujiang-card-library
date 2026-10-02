@@ -19,6 +19,7 @@ import path from 'node:path';
 import url from 'node:url';
 import { fileURLToPath } from 'node:url';
 import * as syncCore from './sync-core.mjs';
+import * as shapExport from './shap-export.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -723,6 +724,40 @@ async function handleApi(req, res, pathname, query) {
         result: syncState.result,
         config: syncConfig,
       },
+    });
+  }
+
+  /* ---------- 导出为 .shap（做卡工程档） ---------- */
+  // 必须放在 /api/characters/(.+) 前面：那个正则是贪婪的，
+  // /api/characters/煌/shap 会被它整条吃掉，然后因为「目录不存在」而 404。
+  //
+  // 不带 card 参数 = 回一份预览（骨架来源 + 会被覆盖的字段），网页拿它画确认框；
+  // 带 card=N     = 回那个 .shap 文件本身，浏览器直接下载。
+  const mShap = pathname.match(/^\/api\/shap\/(.+)$/);
+  if (mShap && method === 'GET') {
+    const dirRel = decodeURIComponent(mShap[1]);
+    const loc = locateCharacter(dirRel);
+    if (!loc) return sendJson(res, 404, { error: `找不到武将目录：${dirRel}` });
+
+    const character = await loadCharacter(loc.abs, dirRel, dirRel);
+    const built = shapExport.buildCharacterShap({ character, dirAbs: loc.abs });
+
+    if (query.card !== undefined) {
+      const idx = Number(query.card);
+      const one = Number.isInteger(idx) ? built[idx] : null;
+      if (!one || !one.ok) {
+        return sendJson(res, 404, { error: one?.error ?? `没有第 ${query.card} 张卡面` });
+      }
+      return send(res, 200, shapExport.serializeShap(one.obj), {
+        'Content-Type': 'application/octet-stream',
+        'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(one.filename)}`,
+      });
+    }
+
+    return sendJson(res, 200, {
+      dir: dirRel,
+      name: character.name ?? dirRel,
+      cards: built.map(shapExport.toPreview),
     });
   }
 

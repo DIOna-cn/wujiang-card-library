@@ -1177,6 +1177,47 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
 
+/* ------------------------- 导出为 shap 弹窗 ------------------------- */
+
+.shap-list { display: flex; flex-direction: column; gap: 11px; }
+
+.shap-card {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--bg-elev-2);
+}
+.shap-card-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.shap-src { margin: 0 0 8px; font-size: 12.5px; color: var(--fg-dim); }
+.shap-src .warn { color: var(--accent); }
+.shap-src .dim,
+.shap-changes .dim,
+.shap-sub .dim { color: var(--fg-faint); }
+
+.shap-changes {
+  margin: 0 0 10px;
+  padding-left: 18px;
+  font-size: 12.5px;
+  line-height: 1.9;
+  color: var(--fg-dim);
+}
+.shap-changes s { color: var(--fg-faint); text-decoration-thickness: 1px; }
+.shap-changes em { color: var(--ok); font-style: normal; }
+.shap-changes b { color: var(--fg); font-weight: 600; }
+
+.shap-sub { margin: 2px 0 0; padding-left: 16px; }
+.shap-sub .add { color: var(--ok); }
+.shap-sub .del { color: var(--danger); }
+
+.shap-warn { margin: 6px 0 0; font-size: 12.5px; color: var(--accent); }
+
+
 .checkbox-row {
   display: flex;
   align-items: center;

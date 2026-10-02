@@ -1,0 +1,360 @@
+{
+  "template": {
+    "name": "new_ui_zhuoyue"
+  },
+  "baseInfo": {
+    "name": "塔露拉",
+    "title": "不死的黑蛇",
+    "kingdom": "shu",
+    "doubleKingdom": [
+      "wei",
+      "qun"
+    ],
+    "hp": 3,
+    "maxHp": 3,
+    "shield": 0,
+    "quality": "epic",
+    "legendId": "ARK 011.1",
+    "life": "张春华，司马懿的正妻。 张春华年轻时就有德行，智慧见识超过常人，为司马懿生下司马师、司马昭、司马干和南阳公主。 正始八年夏季四月，张春华去世，葬于洛阳高原陵，追赠广平县君。咸熙元年，追号宣穆妃。张春华的孙子晋武帝司马炎接收禅让建立西晋后，于泰始元年十二月丁卯追尊张春华为宣穆皇后。",
+    "pic": "",
+    "skills": [],
+    "quote": "",
+    "copyright": "™&© 2026 鹰角网络",
+    "masterFlag": false,
+    "packageIdentify": {
+      "name": "0",
+      "pic": "",
+      "textFlag": false,
+      "maxLength": 1,
+      "text": ""
+    }
+  },
+  "renderConfig": {
+    "customImage": {
+      "defaultScale": 50,
+      "layerPosition": "partial",
+      "hidePartialSkillOverlap": true
+    },
+    "display": {
+      "fullModeFlag": false
+    },
+    "outOfFrame": {
+      "enabled": false,
+      "maskDataUrl": "",
+      "sourcePic": ""
+    },
+    "watermark": {
+      "showFlag": false,
+      "username": ""
+    },
+    "items": {
+      "frame": {
+        "code": "frame",
+        "name": "边框",
+        "x": -3,
+        "y": -3,
+        "width": 68.08,
+        "height": 93,
+        "scale": 1,
+        "order": 99,
+        "rotation": 0,
+        "editable": {
+          "selectable": false,
+          "movable": false,
+          "rotatable": false,
+          "scalable": false
+        },
+        "src": "shu",
+        "fullUiType": "",
+        "frameCardLayoutKey": "normal"
+      },
+      "name": {
+        "code": "name",
+        "name": "武将名",
+        "x": 2.4,
+        "y": 34,
+        "width": 7.06,
+        "height": 25.57,
+        "scale": 1,
+        "order": 2,
+        "rotation": 0,
+        "editable": {
+          "selectable": true,
+          "movable": true,
+          "rotatable": false,
+          "scalable": true
+        },
+        "convertTChFlag": true,
+        "characterSpacing": 1.59,
+        "splitFlag": false,
+        "textCardLayoutKey": "normal",
+        "size": 20
+      },
+      "title": {
+        "code": "title",
+        "name": "称号",
+        "x": 4.3,
+        "y": 14,
+        "width": 3.53,
+        "height": 20.36,
+        "scale": 1,
+        "order": 3,
+        "rotation": 0,
+        "editable": {
+          "selectable": true,
+          "movable": true,
+          "rotatable": false,
+          "scalable": true
+        },
+        "convertTChFlag": true,
+        "characterSpacing": 0,
+        "customColorFlag": false,
+        "customColor": "",
+        "customColorPrimary": "",
+        "customColorSecondary": "",
+        "textCardLayoutKey": "normal",
+        "size": 10
+      },
+      "hp": {
+        "code": "hp",
+        "name": "体力",
+        "x": 11.2,
+        "y": 1.5,
+        "width": 22.21,
+        "height": 4.6,
+        "scale": 1,
+        "order": 99,
+        "rotation": 0,
+        "editable": {
+          "selectable": false,
+          "movable": false,
+          "rotatable": false,
+          "scalable": false
+        },
+        "equalFlag": true,
+        "customColorFlag": false,
+        "customColor": "",
+        "customColorPrimary": "",
+        "customColorSecondary": ""
+      },
+      "skillsName": {
+        "code": "skillsName",
+        "name": "技能名",
+        "x": 2,
+        "y": 55.37,
+        "width": 18.8,
+        "height": 31.63,
+        "scale": 1,
+        "order": 5,
+        "rotation": 0,
+        "editable": {
+          "selectable": true,
+          "movable": false,
+          "rotatable": false,
+          "scalable": false
+        },
+        "convertTChFlag": true,
+        "characterSpacing": 0,
+        "marginTop": 0
+      },
+      "skillsDesc": {
+        "code": "skillsDesc",
+        "name": "技能描述",
+        "x": 0,
+        "y": 55.37,
+        "width": 62,
+        "height": 31.63,
+        "scale": 1,
+        "order": 4,
+        "rotation": 0,
+        "editable": {
+          "selectable": true,
+          "movable": false,
+          "rotatable": false,
+          "scalable": true
+        },
+        "size": 5,
+        "autoOptimizeFlag": true,
+        "autoOptimizeSizeFlag": true,
+        "autoFullNumberFlag": true,
+        "newFontFlag": false,
+        "derivedSkillFontFlag": true,
+        "textBoldFlag": false,
+        "paraSpacing": 0.76,
+        "singleLineParaSpacing": 0,
+        "rowSpacing": 6,
+        "characterSpacing": -25,
+        "marginTop": 0,
+        "marginBottom": 0,
+        "marginLeft": 0.2,
+        "marginRight": 0.76,
+        "bgOpaque": 0.65,
+        "manualSizeFlag": false
+      },
+      "quote": {
+        "code": "quote",
+        "name": "unknown",
+        "x": 0,
+        "y": 0,
+        "width": 100,
+        "height": 100,
+        "scale": 1,
+        "order": 16,
+        "rotation": 0,
+        "editable": {
+          "selectable": false,
+          "movable": false,
+          "rotatable": false,
+          "scalable": true
+        },
+        "size": 4.5,
+        "characterSpacing": -25,
+        "marginTop": 0.76,
+        "marginBottom": 0,
+        "marginLeft": 0,
+        "marginRight": 0.76,
+        "manualSizeFlag": false
+      },
+      "bottomInfo": {
+        "code": "bottomInfo",
+        "name": "底部信息",
+        "x": 0,
+        "y": 83.64,
+        "width": 62,
+        "height": 3.8,
+        "scale": 1,
+        "order": 25,
+        "rotation": 0,
+        "editable": {
+          "selectable": false,
+          "movable": false,
+          "rotatable": false,
+          "scalable": false
+        },
+        "showFlag": true,
+        "strokeFlag": false,
+        "marginLeft": 0,
+        "marginRight": 5
+      },
+      "package": {
+        "code": "package",
+        "name": "角标",
+        "x": 0,
+        "y": 0,
+        "width": 100,
+        "height": 100,
+        "scale": 1,
+        "order": 6,
+        "rotation": 0,
+        "editable": {
+          "selectable": true,
+          "movable": true,
+          "rotatable": true,
+          "scalable": true
+        },
+        "convertTChFlag": false,
+        "customColor": "#3A8FD9",
+        "customColorEnd": "#3A8FD9"
+      },
+      "kingdom": {
+        "code": "kingdom",
+        "name": "势力",
+        "x": 2.85,
+        "y": 1.5,
+        "width": 9.79,
+        "height": 9.62,
+        "scale": 1,
+        "order": 7,
+        "rotation": 0,
+        "editable": {
+          "selectable": true,
+          "movable": true,
+          "rotatable": true,
+          "scalable": true
+        },
+        "doubleKingdom": false,
+        "doubleSingleGlyphFlag": false,
+        "doubleSingleGlyphRole": "primary",
+        "convertTChFlag": false,
+        "customKingdomFlag": false,
+        "presetKingdomKey": "",
+        "customText": {
+          "single": "",
+          "primary": "",
+          "secondary": ""
+        },
+        "customFont": 1,
+        "customColor": "#663288",
+        "customColorPrimary": "#663288",
+        "customColorSecondary": "#73B1EC",
+        "customShenTitleColorFlag": false,
+        "customDualCharSpacingMm": 3.6,
+        "glyphEmptyFlag": false,
+        "glyphColorFlag": false,
+        "glyphColor": "",
+        "glyphColorPrimary": "",
+        "glyphColorSecondary": "",
+        "glyphGradientFlag": false,
+        "glyphGradientEndColor": "",
+        "glyphGradientEndColorPrimary": "",
+        "glyphGradientEndColorSecondary": "",
+        "singlePresetGlyphKey": "shu:normal"
+      },
+      "watermark": {
+        "code": "watermark",
+        "name": "水印",
+        "x": 18,
+        "y": 43,
+        "width": 36.43,
+        "height": 7.48,
+        "scale": 1,
+        "order": 9,
+        "rotation": 14,
+        "editable": {
+          "selectable": true,
+          "movable": true,
+          "rotatable": true,
+          "scalable": true
+        },
+        "size": 6.2
+      },
+      "legendOutOfFrame": {
+        "code": "legendOutOfFrame",
+        "name": "人物出框",
+        "x": 0,
+        "y": 0,
+        "width": 100,
+        "height": 100,
+        "scale": 1,
+        "order": 1,
+        "rotation": 0,
+        "editable": {
+          "selectable": false,
+          "movable": false,
+          "rotatable": false,
+          "scalable": false
+        }
+      },
+      "legendImage": {
+        "code": "legendImage",
+        "name": "武将图",
+        "x": 4.75,
+        "y": 0,
+        "width": 61.71,
+        "height": 87,
+        "scale": 1,
+        "order": 1,
+        "rotation": 0,
+        "editable": {
+          "selectable": true,
+          "movable": true,
+          "rotatable": true,
+          "scalable": true,
+          "snapToStageEdge": true
+        },
+        "hideOutOfFrameSkillOverlap": true
+      }
+    }
+  },
+  "customMaterialList": []
+}

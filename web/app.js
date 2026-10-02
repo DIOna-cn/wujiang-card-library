@@ -1698,6 +1698,134 @@
     }
   }
 
+  /* --------------------------- 导出为 shap --------------------------- */
+
+  /**
+   * 导出成做卡工程档（.shap）。
+   *
+   * 先拉一次预览再让人确认：工程档里装着人工在校卡软件里一格一格拖出来的排版，
+   * 网页这边只覆盖文字字段，但「到底覆盖了哪些」得摆出来看 —— 尤其是
+   * 卡框势力、势力字形这类会被顺带改掉的外观字段。
+   */
+  async function exportShapModal() {
+    const c = currentCharacter();
+    if (!c) return;
+    const dir = c.dir || c.id;
+
+    let data;
+    try {
+      data = await api(`/api/shap/${encodeURIComponent(dir)}`);
+    } catch (err) {
+      toast(`导出失败：${err.message}`, 'err');
+      return;
+    }
+
+    const cards = data.cards ?? [];
+    openModal(`
+      <h3>导出为 shap</h3>
+      <p class="modal-sub">
+        会用网页上的最新内容覆盖文字字段，立绘与人工排版沿用工程档。<br>
+        没有工程档的武将借用默认骨架，立绘位置需要自己在做卡软件里重新摆。
+      </p>
+      <div class="shap-list">
+        ${cards.map((r, i) => shapCardHtml(r, i, cards.length)).join('')}
+      </div>
+      <div class="modal-foot">
+        <button class="ghost-btn" data-close-modal="1">关闭</button>
+      </div>
+    `);
+  }
+
+  /** 一张卡面的导出说明 */
+  function shapCardHtml(r, i, total) {
+    const head = total > 1
+      ? `第 ${i + 1} 张：${esc(r.cardName || '（未命名卡面）')}`
+      : esc(r.cardName || '卡面');
+
+    if (!r.ok) {
+      return `<div class="shap-card">
+        <div class="shap-card-head"><strong>${head}</strong></div>
+        <p class="shap-warn">⚠ ${esc(r.error ?? '无法生成')}</p>
+      </div>`;
+    }
+
+    const src = r.isDefault
+      ? '<span class="warn">没有工程档，借用默认骨架</span>'
+      : `${esc(r.skeleton?.file ?? '')} <span class="dim">· ${esc(r.skeleton?.from ?? '')}</span>`;
+
+    const changes = r.changes ?? [];
+    const rows = changes.map((ch) => {
+      if (ch.kind === 'skills') {
+        return `<li><b>技能表</b> ${ch.from.length} → ${ch.to.length} 条
+          <ul class="shap-sub">${skillDiffHtml(ch.from, ch.to)}</ul></li>`;
+      }
+      return `<li><b>${esc(ch.label)}</b> <s>${esc(kingdomAware(ch.from, ch.path))}</s> → <em>${esc(kingdomAware(ch.to, ch.path))}</em></li>`;
+    }).join('');
+
+    const warns = (r.warnings ?? []).map((w) => `<p class="shap-warn">⚠ ${esc(w)}</p>`).join('');
+
+    return `<div class="shap-card">
+      <div class="shap-card-head">
+        <strong>${head}</strong>
+        <span class="chip">${esc(r.filename)}</span>
+      </div>
+      <p class="shap-src">骨架：${src}</p>
+      ${changes.length
+        ? `<ul class="shap-changes">${rows}</ul>`
+        : '<p class="shap-src dim">网页数据与工程档已经一致，导出内容不变。</p>'}
+      ${warns}
+      <button class="ghost-btn" data-shap-download="${i}">下载 .shap</button>
+    </div>`;
+  }
+
+  /** 技能表逐条对比 */
+  function skillDiffHtml(from, to) {
+    const rows = [];
+    const max = Math.max(from.length, to.length);
+    for (let i = 0; i < max; i++) {
+      const a = from[i];
+      const b = to[i];
+      if (!a) rows.push(`<li class="add">新增「${esc(b.name || '未命名')}」</li>`);
+      else if (!b) rows.push(`<li class="del">删掉「${esc(a.name || '未命名')}」</li>`);
+      else if (a.name !== b.name) rows.push(`<li>「${esc(a.name)}」改名成「${esc(b.name)}」</li>`);
+      else if (a.desc !== b.desc) rows.push(`<li>「${esc(a.name)}」描述有改动</li>`);
+    }
+    return rows.join('') || '<li class="dim">技能名和描述都没变</li>';
+  }
+
+  /** 势力代码顺手翻成中文，其余值截断一下别撑破弹窗 */
+  function kingdomAware(v, path) {
+    if (/(kingdom|frame\.src|GlyphKey)/i.test(path) && typeof v === 'string' && v) {
+      const code = v.split(':')[0];
+      const label = kingdomLabel(code);
+      return label && label !== code ? `${label}（${v}）` : v;
+    }
+    return fmtVal(v);
+  }
+
+  function fmtVal(v) {
+    if (v === '' || v == null) return '（空）';
+    if (typeof v === 'boolean') return v ? '是' : '否';
+    const s = String(v);
+    return s.length > 90 ? `${s.slice(0, 87)}…` : s;
+  }
+
+  /** 交给浏览器下载：文件名由服务端的 Content-Disposition 决定 */
+  function downloadShap(dir, index, btn) {
+    const a = document.createElement('a');
+    a.href = `/api/shap/${encodeURIComponent(dir)}?card=${index}`;
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    if (btn) {
+      const old = btn.textContent;
+      btn.textContent = '已开始下载';
+      btn.disabled = true;
+      setTimeout(() => { btn.textContent = old; btn.disabled = false; }, 1600);
+    }
+  }
+
   /* --------------------------- 事件绑定 --------------------------- */
 
   function bindGlobalEvents() {
@@ -1804,6 +1932,7 @@
       } else startEdit();
     });
     $('#btnCardDelete').addEventListener('click', deleteCharacter);
+    $('#btnExportShap').addEventListener('click', exportShapModal);
     $('#btnSave').addEventListener('click', saveDraft);
     $('#btnRevert').addEventListener('click', cancelEdit);
 
@@ -1816,6 +1945,15 @@
     // 弹窗
     $('#modalMask').addEventListener('click', (e) => {
       if (e.target === $('#modalMask') || e.target.closest('[data-close-modal]')) closeModal();
+    });
+
+    // 「导出为 shap」的下载按钮在弹窗里，但弹窗内容每次都是重写的，
+    // 监听器只绑在 #modal 上这一次 —— 否则每开一次弹窗就叠一层，点一下下载会触发好几次。
+    $('#modal').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-shap-download]');
+      if (!btn) return;
+      const c = currentCharacter();
+      if (c) downloadShap(c.dir || c.id, Number(btn.dataset.shapDownload), btn);
     });
 
     // 快捷键
