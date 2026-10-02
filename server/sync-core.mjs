@@ -90,6 +90,9 @@ export function projectKeep(rel, projectName = '') {
   if (top === '推送到GitHub.cmd' || top === '从GitHub拉取.cmd') return false;
   if (/^\.git(ignore|attributes)$/.test(top)) return top === '.gitattributes';
   if (/\.(log|tmp)$/i.test(rel)) return false;
+  // 安装包不进仓库。用户为了装 git 下载的 Git-2.56.0-64-bit.exe 就这么被推上去过一次：
+  // 单个文件 64 MB，比整套程序还大，而且对别人毫无用处。
+  if (/\.(exe|msi)$/i.test(rel)) return false;
   if (rel === 'server.pid') return false;
   if (projectName && top === projectName) return false;
   return true;
