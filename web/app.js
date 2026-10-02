@@ -1129,11 +1129,12 @@
         <div class="field wide"><label>代理（git 不读 Windows 系统代理，留空则直连）</label>
           <input id="syProxy" value="${esc(cfg.proxy ?? '')}" placeholder="http://127.0.0.1:7892"></div>
         <div class="field wide"><label>git 工作副本位置</label>
-          <input id="syWork" value="${esc(cfg.work ?? '')}"></div>
+          <input id="syWork" value="${esc(cfg.work ?? '')}" placeholder="留空 = 本机默认位置"></div>
       </div>
       <p class="modal-sub" style="margin:12px 0 0">
-        提示：这台机器上 github.com 直连会被打断，需要挂着代理并在上面填对端口。
-        改完保存后点一次「检查」验证是否连得上。
+        工作副本位置留空即用默认（本机用户目录下的「&lt;项目名&gt;-git」）。
+        项目若是从别的电脑拷过来的，这里可能还留着那台机器的路径，请清空或改成自己的。
+        代理留空即直连：直连能通，但会被间歇性掐断，失败时会自动重试。
       </p>
       <div class="modal-foot">
         <button class="ghost-btn" data-close-modal="1">取消</button>

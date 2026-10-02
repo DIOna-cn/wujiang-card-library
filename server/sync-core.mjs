@@ -291,30 +291,100 @@ export async function ensureRemoteOnly({ work, remote, branch = 'main', proxy = 
   return { ready: true, created: false };
 }
 
+/** 把 mkdir 的错误码翻译成人话 */
+function mkdirReason(err) {
+  const code = err?.code || '';
+  if (code === 'EPERM' || code === 'EACCES') return '没有权限，或上一级目录不允许创建子目录';
+  if (code === 'ENOENT') return '上一级目录不存在';
+  if (code === 'ENOTDIR') return '路径中间有个同名的文件，不是文件夹';
+  if (code === 'EEXIST') return '同名文件已经存在';
+  return err?.message || String(err);
+}
+
+/**
+ * 建一个目录，失败时返回原因而不是抛。
+ *
+ * 这里堵了两个坑：
+ *   1. work 是空串时**不能**用 path.resolve('') —— 那会变成「进程当前目录」，
+ *      于是「没配路径」会悄悄变成「在启动目录里建一个 git 仓库」。
+ *   2. Windows 上 mkdir 报的路径是**完整目标路径**（实测：建
+ *      C:\Users\__x__\y 失败时报的就是整条 C:\Users\__x__\y，不是中间那一层），
+ *      所以在 C:\Users 下建目录被拒时，报错看上去像是「要往 C:\Users\xxx 里写」。
+ */
+async function tryMkdir(dir) {
+  const raw = String(dir ?? '').trim();
+  if (!raw) return { ok: false, dir: '', reason: '没有配置路径' };
+  const abs = path.resolve(raw);
+  try {
+    await fsp.mkdir(abs, { recursive: true });
+    return { ok: true, dir: abs };
+  } catch (e) {
+    return { ok: false, dir: abs, reason: mkdirReason(e), code: e?.code || '' };
+  }
+}
+
+/**
+ * 挑一个能用的工作副本目录：配置的位置建不出来，就退回默认位置。
+ *
+ * 为什么必须回退：`.data\sync.json` 里的 work 是**绝对路径**，而它会跟着项目
+ * 文件夹一起被拷来拷去（这个文件本身不进仓库，但整个目录复制会带上）。
+ * 换一台机器、或者换成一个用户名的机器，那个路径就指向了别人的家目录 ——
+ * Node 建不出来，报的却是光秃秃的
+ *   EPERM: operation not permitted, mkdir 'C:\Users\someone'
+ * 完全看不出「这是配置文件里一个属于上一台机器的路径」。
+ */
+async function pickWorkDir(work, fallbackWork) {
+  const first = await tryMkdir(work);
+  if (first.ok) return { ok: true, work: first.dir, usedFallback: false };
+
+  if (fallbackWork) {
+    const alt = await tryMkdir(fallbackWork);
+    if (alt.ok && alt.dir !== first.dir) {
+      return {
+        ok: true, work: alt.dir, usedFallback: true,
+        movedFrom: first.dir || '(空)', reason: first.reason,
+      };
+    }
+  }
+
+  return {
+    ok: false, dir: first.dir, reason: first.reason,
+    error: `工作副本目录建不起来：${first.dir || '(空)'}（${first.reason}）。`
+      + '这个位置存在 .data\\sync.json 里，是从另一台机器带过来的绝对路径。'
+      + '打开网页右上角的齿轮，把「git 工作副本位置」清空（改回默认位置）或填成本机可用的路径，再点下载。',
+  };
+}
+
 /** 确保工作副本存在并配好（remote / 代理 / 行尾）—— 上传、下载时用 */
-export async function ensureRepo({ work, remote, branch = 'main', proxy = '', projectName = '' }) {
-  await fsp.mkdir(work, { recursive: true });
-  const created = !(await isRepo(work));
+export async function ensureRepo({ work, remote, branch = 'main', proxy = '', projectName = '', fallbackWork = '' }) {
+  const pick = await pickWorkDir(work, fallbackWork);
+  if (!pick.ok) throw new Error(pick.error);
+
+  const dir = pick.work;
+  const created = !(await isRepo(dir));
 
   if (created) {
-    await git(['init', '-b', branch], { cwd: work });
-    await git(['config', 'core.autocrlf', 'false'], { cwd: work });
-    await git(['config', 'core.quotepath', 'false'], { cwd: work });
-    if (remote) await git(['remote', 'add', 'origin', remote], { cwd: work });
+    await git(['init', '-b', branch], { cwd: dir });
+    await git(['config', 'core.autocrlf', 'false'], { cwd: dir });
+    await git(['config', 'core.quotepath', 'false'], { cwd: dir });
+    if (remote) await git(['remote', 'add', 'origin', remote], { cwd: dir });
   }
 
   // remote 可能变了（用户在网页上填了另一个仓库）
   if (remote) {
-    const cur = (await git(['remote', 'get-url', 'origin'], { cwd: work })).stdout.trim();
+    const cur = (await git(['remote', 'get-url', 'origin'], { cwd: dir })).stdout.trim();
     if (cur !== remote) {
-      if (cur) await git(['remote', 'set-url', 'origin', remote], { cwd: work });
-      else await git(['remote', 'add', 'origin', remote], { cwd: work });
+      if (cur) await git(['remote', 'set-url', 'origin', remote], { cwd: dir });
+      else await git(['remote', 'add', 'origin', remote], { cwd: dir });
     }
   }
 
-  await applyProxyConfig(work, proxy);
+  await applyProxyConfig(dir, proxy);
 
-  return { created };
+  return {
+    created, work: dir,
+    usedFallback: pick.usedFallback, movedFrom: pick.movedFrom, reason: pick.reason,
+  };
 }
 
 /** 工作副本里有没有未提交的改动 */
@@ -520,13 +590,15 @@ export function hasConflict(msg) {
  */
 export async function pushAll({
   project, assets, work, mode = DEFAULT_MODE, remote, branch = 'main',
-  proxy = '', projectName = '', message = '', onStep = () => {},
+  proxy = '', projectName = '', message = '', fallbackWork = '', onStep = () => {},
 }) {
   const steps = [];
   const step = (s) => { steps.push(s); onStep(s); };
 
   step('准备 git 工作副本…');
-  await ensureRepo({ work, remote, branch, proxy, projectName });
+  const prep = await ensureRepo({ work, remote, branch, proxy, projectName, fallbackWork });
+  work = prep.work;   // 回退过的话，下面每一处 work 都跟着走
+  if (prep.usedFallback) step(`原定的工作副本位置用不了（${prep.reason}），改用 ${work}`);
 
   step('收集要同步的文件…');
   const workSet = await buildWorkSet({ project, assets, mode, projectName });
@@ -623,7 +695,7 @@ export async function pushAll({
 
   step('完成');
   return {
-    ok: true, op: 'upload', steps,
+    ok: true, op: 'upload', steps, work,
     copied: copied.length, removed: removed.length, changes, committed,
     merged, incoming,
     added: back ? back.added.length : 0,
@@ -637,18 +709,20 @@ export async function pushAll({
  */
 export async function pullAll({
   project, assets, work, mode = DEFAULT_MODE, remote, branch = 'main',
-  proxy = '', projectName = '', onStep = () => {},
+  proxy = '', projectName = '', fallbackWork = '', onStep = () => {},
 }) {
   const steps = [];
   const step = (s) => { steps.push(s); onStep(s); };
 
   step('准备 git 工作副本…');
-  await ensureRepo({ work, remote, branch, proxy, projectName });
+  const prep = await ensureRepo({ work, remote, branch, proxy, projectName, fallbackWork });
+  work = prep.work;   // 回退过的话，下面每一处 work 都跟着走
+  if (prep.usedFallback) step(`原定的工作副本位置用不了（${prep.reason}），改用 ${work}`);
 
   const dirty = await workIsDirty(work);
   if (dirty.dirty) {
     return {
-      ok: false,
+      ok: false, work,
       error: '工作副本里有还没推上去的改动，先点「上传」把它们推上去，再下载。',
       detail: dirty.detail.split('\n').slice(0, 8),
       steps,
@@ -720,7 +794,7 @@ export async function pullAll({
 
   step('完成');
   return {
-    ok: true, op: 'download', steps, changed, commits, before, after,
+    ok: true, op: 'download', steps, work, changed, commits, before, after,
     updated: back.updated, added: back.added, same: back.same,
     localDiff: diffs,
     ahead, needPush: ahead > 0,

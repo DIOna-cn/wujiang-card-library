@@ -166,6 +166,26 @@ async function saveSyncConfig() {
   } catch { /* 忽略 */ }
 })();
 
+/**
+ * 启动时把工作副本位置说清楚：配置里那个值和本机默认值是不是一回事。
+ *
+ * 这一步不建目录、不改配置，只是把「这个路径是从哪来的」写进日志。
+ * .data\sync.json 里的 work 是绝对路径，整个项目被拷到另一台机器时它也跟着走，
+ * 结果就是在别人的家目录上 mkdir，报一个看不懂的 EPERM —— 两行日志一对比就明白。
+ */
+{
+  const fallback = syncCore.defaultWorkDir(ROOT, PROJECT_NAME);
+  const cfgWork = String(syncConfig.work || '').trim();
+  if (!cfgWork) {
+    console.log(`  工作副本   未配置，用默认位置 ${fallback}`);
+  } else {
+    console.log(`  工作副本   ${cfgWork}`);
+    if (path.resolve(cfgWork) !== path.resolve(fallback)) {
+      console.log(`             （不是本机默认位置；默认会是 ${fallback}）`);
+    }
+  }
+}
+
 /** 从 remote 地址解析出 owner/repo@branch（页面上要显示"在跟哪个仓库同步"） */
 function parseRemoteInfo(remote, branch) {
   return syncCore.parseRemote(remote, branch);
@@ -188,12 +208,23 @@ function queueSync(op) {
       project: ROOT,
       assets: ASSETS,
       work: syncConfig.work,
+      // 配置里那个位置在这台机器上建不出来时，sync-core 会退回这里（见 pickWorkDir）
+      fallbackWork: syncCore.defaultWorkDir(ROOT, PROJECT_NAME),
       mode: syncConfig.mode,
       remote: syncConfig.remote,
       branch: syncConfig.branch,
       proxy: syncConfig.proxy,
       projectName: PROJECT_NAME,
       onStep,
+    };
+
+    // 工作副本真的换了位置就记下来，否则每次同步都要先去撞一次那个建不出来的路径
+    const rememberWork = async (r) => {
+      if (!r?.work || r.work === syncConfig.work) return;
+      console.log(`  工作副本   改用 ${r.work}（原 ${syncConfig.work}）`);
+      syncConfig.work = r.work;
+      common.work = r.work;
+      try { await saveSyncConfig(); } catch { /* 存不下也不影响这次同步 */ }
     };
 
     try {
@@ -210,6 +241,7 @@ function queueSync(op) {
         const r = await syncCore.pushAll(common);
         syncState.result = r;
         if (!r.ok) { syncState.error = r.error; syncState.hint = r.hint || ''; }
+        await rememberWork(r);
         // 上传完顺手刷一次状态
         syncState.lastStatus = await syncCore.checkStatus(common);
         syncState.lastCheckAt = Date.now();
@@ -217,6 +249,7 @@ function queueSync(op) {
         const r = await syncCore.pullAll(common);
         syncState.result = r;
         if (!r.ok) { syncState.error = r.error; syncState.hint = r.hint || ''; }
+        await rememberWork(r);
         syncState.lastStatus = await syncCore.checkStatus(common);
         syncState.lastCheckAt = Date.now();
       }
