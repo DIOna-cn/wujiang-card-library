@@ -93,16 +93,19 @@
 
   // live-dsh.json 由 dsh-tunnel/report.mjs 自动写入，这里按可靠性从高到低试三个通道：
   //
-  //   1. 同源相对路径 —— 文件就在本仓库根目录，同一个 Pages 站点里直接取，
-  //      没有跨域问题，也最快（页面自己访问自己）；
-  //   2. raw.githubusercontent.com —— 跨域但要靠它的 CORS 头；它有一条
-  //      max-age=300 的 CDN 缓存，刚推完可能还回 404，所以不能只靠它；
-  //   3. api.github.com 的 contents 接口 —— 实时、不缓存，且带
-  //      Access-Control-Allow-Origin: *，是最后的兜底。
-  //      代价是未登录时每个 IP 每小时只有 60 次配额，所以只当备胎。
+  //   1. api.github.com 的 contents 接口 —— **实时、不缓存**，而且带
+  //      Access-Control-Allow-Origin: *。放在第一位的理由：同源那份是
+  //      GitHub Pages 的产物，推完要等 Pages 部署 + CDN 刷新，实测会滞后
+  //      好几分钟。而我们要跳过去的隧道地址随时在变，读到旧的就跳不通。
+  //      代价是未登录时每个 IP 每小时 60 次配额 —— 个人用完全够，
+  //      真被限流了会自动落到下面两个通道。
+  //   2. 同源相对路径 —— 同一个 Pages 站点里直接取，没有跨域问题，
+  //      但如上所述有部署延迟。作为 API 限流时的兜底。
+  //   3. raw.githubusercontent.com —— 跨域靠它的 CORS 头；它有一条
+  //      max-age=300 的 CDN 缓存，刚推完可能还回 404，所以放最后。
+  var API = 'https://api.github.com/repos/DIOna-cn/wujiang-card-library/contents/live-dsh.json?ref=main';
   var SAME_ORIGIN = 'live-dsh.json';
   var RAW = 'https://raw.githubusercontent.com/DIOna-cn/wujiang-card-library/main/live-dsh.json';
-  var API = 'https://api.github.com/repos/DIOna-cn/wujiang-card-library/contents/live-dsh.json?ref=main';
 
   var $ = function (id) { return document.getElementById(id); };
   var msg = $('msg'), urlBox = $('urlBox'), goBtn = $('goBtn'), retryBtn = $('retryBtn');
@@ -170,9 +173,10 @@
 
     var bust = '?t=' + Date.now();
     var tries = [
+      // API 优先：实时、不缓存，见上面注释
+      { url: API + '&t=' + Date.now(), opt: { cache: 'no-store', headers: { accept: 'application/vnd.github.raw+json' } } },
       { url: SAME_ORIGIN + bust, opt: { cache: 'no-store' } },
       { url: RAW + bust, opt: { cache: 'no-store' } },
-      { url: API + '&t=' + Date.now(), opt: { cache: 'no-store', headers: { accept: 'application/vnd.github.raw+json' } } },
     ];
 
     var i = 0;
