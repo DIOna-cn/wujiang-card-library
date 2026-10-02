@@ -186,6 +186,22 @@ async function saveSyncConfig() {
   }
 }
 
+/**
+ * 启动时确认 git 在不在。上传 / 下载全靠它，而它缺席时的原始报错是
+ * `spawn git ENOENT`，冒出来的位置却是「首次拉取失败」—— 看着完全像网络问题，
+ * 人就跑去查代理了。与其等点到那一步，不如启动就说明白。
+ */
+{
+  const bin = await syncCore.findGit();
+  if (bin) {
+    const v = await syncCore.git(['--version']);
+    console.log(`  git        ${v.ok ? v.stdout.trim() : bin}`);
+  } else {
+    console.log('  git        ✗ 没找到 —— 「上传 / 下载」会失败，请先装 Git for Windows');
+    console.log('             https://git-scm.com/download/win（装完要重启这个服务）');
+  }
+}
+
 /** 从 remote 地址解析出 owner/repo@branch（页面上要显示"在跟哪个仓库同步"） */
 function parseRemoteInfo(remote, branch) {
   return syncCore.parseRemote(remote, branch);

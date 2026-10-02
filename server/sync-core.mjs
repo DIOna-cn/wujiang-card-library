@@ -190,26 +190,101 @@ export function probeProxy(proxyUrl, timeoutMs = 1200) {
 }
 
 /* ------------------------------------------------------------------ *
- * git 封装
+ * 找 git / 跑 git
  * ------------------------------------------------------------------ */
+
+/** 「没找到 git」的统一说法；调用方用 includes('找不到 git') 识别 */
+export const GIT_MISSING = '找不到 git 命令（这台电脑上可能没装 Git，或者服务是在装 Git 之前启动的）';
+
+/**
+ * 这台机器上的 git 在哪。
+ *
+ * 为什么要自己找：PATH 里没有 git 时，`execFile('git', …)` 只抛一句
+ * `spawn git ENOENT` —— 既没说是「没装 git」，也没说该装什么；而它冒出来的位置是
+ * 「首次拉取失败」，看着完全像网络问题，人就跑去查代理了（真发生过）。
+ *
+ * 比「没装」更常见的是另一种：Git for Windows 装了，但**服务是在装它之前启动的**，
+ * 这个进程继承下来的 PATH 里没有它 —— 重启一次服务就好。为了连这种也兜住，
+ * 下面把常见安装位置也试一遍。
+ *
+ * 设了环境变量 WUJIANG_GIT 就只用它：绿色版可以指定路径，自检里也可以拿它
+ * 模拟「这台机器没有 git」。
+ */
+let gitBin = null;   // null = 还没找过；'' = 找过但没找到；字符串 = 可执行文件
+
+/** 这个可执行文件真的是 git 吗（跑一次 --version 看） */
+function probeGit(bin) {
+  if (!bin) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    execFile(bin, ['--version'], { encoding: 'utf8', timeout: 8000, windowsHide: true },
+      (err, stdout) => resolve(!err && /git version/i.test(String(stdout))));
+  });
+}
+
+export async function findGit({ refresh = false } = {}) {
+  if (refresh) gitBin = null;
+  if (gitBin) return gitBin;
+
+  const forced = String(process.env.WUJIANG_GIT || '').trim();
+  if (forced) {
+    // 明确指定了就不再顺着 PATH 猜 —— 猜中了反而会掩盖配置写错的地方
+    gitBin = (await probeGit(forced)) ? forced : '';
+    return gitBin;
+  }
+
+  const candidates = ['git'];
+  if (process.platform === 'win32') {
+    const pf = process.env.ProgramFiles || 'C:\\Program Files';
+    const pf86 = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';
+    const local = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
+    candidates.push(
+      path.join(pf, 'Git', 'cmd', 'git.exe'),
+      path.join(pf86, 'Git', 'cmd', 'git.exe'),
+      path.join(local, 'Programs', 'Git', 'cmd', 'git.exe'),
+      path.join(pf, 'Git', 'bin', 'git.exe'),
+      path.join(os.homedir(), 'scoop', 'shims', 'git.exe'),
+      path.join(process.env.ChocolateyInstall || 'C:\\ProgramData\\chocolatey', 'bin', 'git.exe'),
+    );
+  }
+  for (const c of candidates) {
+    if (await probeGit(c)) { gitBin = c; return c; }
+  }
+  gitBin = '';
+  return '';
+}
+
+/** 找到过就一直用；没找到则每次重找 —— 这样用户装完 git 不必重启服务 */
+async function ensureGit() {
+  return gitBin || findGit();
+}
+
+/** git 的报错原样抛出去容易被误读，ENOENT 尤其容易被当成网络问题 */
+export function gitErrMessage(err, stderr = '', stdout = '') {
+  if (err?.code === 'ENOENT') return GIT_MISSING;
+  return String(stderr).trim() || String(stdout).trim() || err?.message || String(err);
+}
 
 /**
  * 跑一条 git 命令。
  * 传了 proxy 就带 -c http.proxy / https.proxy —— git 不读 Windows 系统代理，
- * 要显式告诉它。不传就走直连：本机 github.com 直连实测是通的。
+ * 要显式告诉它。不传就走直连。
  * 同时关掉交互提示，避免服务器进程卡在等输入上。
  */
-export function git(args, { cwd, proxy = '', timeoutMs = 120000 } = {}) {
+export async function git(args, { cwd, proxy = '', timeoutMs = 120000 } = {}) {
+  const bin = await ensureGit();
+  if (!bin) return { ok: false, code: 'ENOENT', stdout: '', stderr: '', message: GIT_MISSING };
+
   const full = [];
   if (proxy) full.push('-c', `http.proxy=${proxy}`, '-c', `https.proxy=${proxy}`);
   full.push(...args);
 
   return new Promise((resolve) => {
-    execFile('git', full, {
+    execFile(bin, full, {
       cwd,
       encoding: 'utf8',
       timeout: timeoutMs,
       maxBuffer: 32 * 1024 * 1024,
+      windowsHide: true,
       env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GCM_INTERACTIVE: 'never' },
     }, (err, stdout = '', stderr = '') => {
       resolve({
@@ -217,10 +292,19 @@ export function git(args, { cwd, proxy = '', timeoutMs = 120000 } = {}) {
         code: err?.code ?? 0,
         stdout: String(stdout),
         stderr: String(stderr),
-        message: err ? (String(stderr).trim() || String(stdout).trim() || err.message) : '',
+        message: err ? gitErrMessage(err, stderr, stdout) : '',
       });
     });
   });
+}
+
+/** 连不上时给的建议：先分清是「没有 git」还是「网络没通」，别让人往错的方向查 */
+export function fetchHint(msg, proxy = '') {
+  if (String(msg || '').includes('找不到 git')) {
+    return '这台电脑上没找到 git。装一个 Git for Windows（https://git-scm.com/download/win），'
+      + '装完重启这个服务再试。';
+  }
+  return proxy ? '确认代理软件在运行。' : 'git 不读系统代理，可显式指定代理后重试。';
 }
 
 /** 工作副本是否已初始化 */
@@ -364,7 +448,10 @@ export async function ensureRepo({ work, remote, branch = 'main', proxy = '', pr
   const created = !(await isRepo(dir));
 
   if (created) {
-    await git(['init', '-b', branch], { cwd: dir });
+    // 这一步失败必须当场报出来。没有 git 时它只会静默失败，然后一路走到
+    // 「首次拉取失败」，把「没装 git」说成网络问题 —— 那是把人往错的方向指。
+    const init = await git(['init', '-b', branch], { cwd: dir });
+    if (!init.ok) throw new Error(`初始化工作副本失败：${init.message}`);
     await git(['config', 'core.autocrlf', 'false'], { cwd: dir });
     await git(['config', 'core.quotepath', 'false'], { cwd: dir });
     if (remote) await git(['remote', 'add', 'origin', remote], { cwd: dir });
@@ -685,9 +772,11 @@ export async function pushAll({
       return {
         ok: false,
         error: '推送失败：' + p.message,
-        hint: proxy
-          ? '检查代理是否在运行；也可以确认仓库地址与权限。'
-          : 'git 不读系统代理，可显式指定代理后重试。',
+        hint: /找不到 git/.test(p.message)
+          ? fetchHint(p.message)
+          : (proxy
+            ? '检查代理是否在运行；也可以确认仓库地址与权限。'
+            : 'git 不读系统代理，可显式指定代理后重试。'),
         steps, copied: copied.length, removed: removed.length, committed,
       };
     }
@@ -746,7 +835,7 @@ export async function pullAll({
       return {
         ok: false,
         error: '首次拉取失败：' + f.message,
-        hint: proxy ? '确认代理软件在运行。' : 'git 不读系统代理，可显式指定代理后重试。',
+        hint: fetchHint(f.message, proxy),
         steps,
       };
     }
@@ -772,7 +861,7 @@ export async function pullAll({
     return {
       ok: false,
       error: '拉取失败：' + r.message,
-      hint: proxy ? '确认代理软件在运行。' : 'git 不读系统代理，可显式指定代理后重试。',
+      hint: fetchHint(r.message, proxy),
       steps,
     };
   }

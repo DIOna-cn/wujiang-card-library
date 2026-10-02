@@ -15,7 +15,7 @@
 会自动打开浏览器到 <http://127.0.0.1:3456/>，命令行窗口保持开启即为运行中。
 关掉那个窗口（或双击 `停止.cmd`）即停止服务。
 
-> 需要 Node.js（已确认本机为 v22）。服务只监听 `127.0.0.1`，不对外网开放，零第三方依赖。
+> 需要 Node.js（已确认本机为 v22）；「上传 / 下载」还需要 Git。服务只监听 `127.0.0.1`，不对外网开放，零第三方依赖。
 
 ### 如果双击没反应 / 窗口闪退
 
@@ -259,6 +259,7 @@ node scripts\verify-download-assets.mjs  # 「下载」会把图片写回；.sha
 node scripts\verify-shap-export.mjs      # 导出为 shap：只覆盖文字，renderConfig 与内嵌立绘一字不动
 node scripts\verify-desc-render.mjs      # 技能描述渲染：引号标色、【牌名】/类型词高亮、转义安全（纯函数，秒出）
 node scripts\verify-workdir.mjs    # 工作副本位置在别的机器上建不出来时，要退回默认位置、并把话说清楚
+node scripts\verify-git.mjs        # 没装 git 时要说「找不到 git」，不能把 ENOENT 说成网络问题
 node scripts\check-migration.mjs   # 比对旧描述与新 JSON 的差异
 node scripts\shots.mjs             # 抓界面截图
 ```
@@ -282,7 +283,9 @@ node scripts\shots.mjs             # 抓界面截图
 
 2. **对方要装 Node.js**（<https://nodejs.org/>，LTS 版，一路下一步）。程序本身零第三方依赖、不需要 `npm install`，但需要 Node 运行时。装了 18 以下会被 `start.ps1` 拦下来提示升级。
 
-3. 服务只监听 `127.0.0.1`，**只有对方本机能访问**。想让局域网里的人访问得改 `server\server.mjs` 里的 `HOST`，但那等于把"能读写别人磁盘文件"的接口开放出去，不建议。
+3. **要用「上传 / 下载」的话，对方还得装 Git**（<https://git-scm.com/download/win>，同样一路下一步）。网页本身不依赖它，只有跟 GitHub 同步时才调用。**装完一定要重启服务** —— 否则这个进程继承下来的 PATH 里没有 git，点下载只会得到一句 `spawn git ENOENT`；而它出现的位置是「首次拉取失败」，看着像网络问题，其实完全不是。新版会在启动日志里单独报一行 `git`，有没有一眼就能看出来。
+
+4. 服务只监听 `127.0.0.1`，**只有对方本机能访问**。想让局域网里的人访问得改 `server\server.mjs` 里的 `HOST`，但那等于把"能读写别人磁盘文件"的接口开放出去，不建议。
 
 ### 打包
 
@@ -339,6 +342,7 @@ DIOna-cn/wujiang-card-library @main       ← 点它打开仓库页面
 | 🔴 连不上远端 | 先点 ⚙ 看代理设置：系统代理关着时会走直连，填了代理却连不上会自动改直连重试 |
 | 🔵 正在检查 / 上传 / 下载… | 进行中，下方显示当前步骤 |
 | 🔴 报 `EPERM ... mkdir 'C:\Users\某人'` | ⚙ 里的「git 工作副本位置」是上一台机器留下的绝对路径，**清空它**即可；新版会自动退回默认位置 |
+| 🔴 报 `spawn git ENOENT` 或「找不到 git」 | 这台电脑上没装 Git，或者**服务是在装 Git 之前启动的** —— 装好后重启服务 |
 
 > 别人推了新东西时，轮询会自动发现并弹提示（间隔 60 秒的情况下实测 18 秒内发现）。
 > 页面切到后台时不轮询，切回来立刻查一次。
