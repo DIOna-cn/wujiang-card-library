@@ -544,7 +544,7 @@
     const pending = c.implemented === false;
 
     if (pending) {
-      parts.push(`<div class="pending-box">这个武将标为「待实现」——卡图外框的琥珀色描边就是它的标记，别当成已完成的武将。</div>`);
+      parts.push(`<div class="pending-box">这是未实现的将，还不快去实现？</div>`);
     }
     if (c.error) parts.push(`<div class="warn-box">读取这个文件夹时出错：${esc(c.error)}</div>`);
     if (!c.hasJson) {

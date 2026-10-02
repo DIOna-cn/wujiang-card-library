@@ -440,6 +440,28 @@ async function main() {
     afterClearObj.checked === false && afterClearObj.n === totalCards,
     `checked=${afterClearObj.checked}，${afterClearObj.n} / ${totalCards}`);
 
+  // ---- 待实现武将在详情页顶部有提示条 ----
+  // 只断言「有这一条且不是空的」，不锁具体文案——那句话是随时会改的
+  if (pendIds.length) {
+    const pIdx = await evaluate(
+      `[...document.querySelectorAll('#grid .card')].findIndex(c => c.dataset.id === ${JSON.stringify(pendIds[0])})`,
+    );
+    await realClick('#grid .card', pIdx >= 0 ? pIdx : 0);
+    await sleep(1300);
+    const pBox = JSON.parse(await evaluate(`JSON.stringify({
+      id: document.querySelector('#dName')?.textContent ?? '',
+      hasBox: !!document.querySelector('#drawerBody .pending-box'),
+      text: (document.querySelector('#drawerBody .pending-box')?.textContent ?? '').trim(),
+    })`));
+    ok('待实现武将的详情页顶部有提示条',
+      pBox.id === pendIds[0] && pBox.hasBox && pBox.text.length > 0,
+      `${pBox.id}：${pBox.text.slice(0, 46) || '（空）'}`);
+    await evaluate(`document.querySelector('#btnCloseDrawer').click()`);
+    await sleep(500);
+  } else {
+    console.log('  跳过：当前没有待实现武将');
+  }
+
   // 视图切换
   await evaluate(`document.querySelector('.seg button[data-view="list"]').click()`);
   await sleep(300);

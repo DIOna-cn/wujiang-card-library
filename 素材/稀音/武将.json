@@ -55,5 +55,6 @@
     "importedAt": "2026-10-01T09:50:31.739Z",
     "importer": "scripts/import.mjs"
   },
-  "updatedAt": "2026-10-02T02:04:41.842Z"
+  "updatedAt": "2026-10-02T11:41:48.945Z",
+  "implemented": false
 }
