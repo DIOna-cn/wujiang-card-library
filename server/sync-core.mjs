@@ -245,6 +245,29 @@ async function applyProxyConfig(work, proxy) {
   }
 }
 
+/** 像是「网络没连上」而不是「被远端拒绝」的错误 —— 只有这种才值得重试 */
+const CONN_ERR = /could not connect|failed to connect|unable to access|timed out|connection (was )?reset|could not resolve|early eof|rpc failed/i;
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * push，连接类失败时自动重试几次。
+ *
+ * 直连 github 是间歇性的：ls-remote 这种小请求常常秒过，push 要传数据，
+ * 更容易被掐断（实测一次卡满 21 秒超时，紧接着重试 3.9 秒就成功了）。
+ * 被拒（远端有别人的新提交）不算连接问题，原样返回，交给调用方走合并逻辑。
+ */
+async function pushWithRetry(work, branch, proxy, attempts = 3, onRetry = null) {
+  let last = null;
+  for (let i = 1; i <= attempts; i++) {
+    last = await git(['push', '-q', '-u', 'origin', branch], { cwd: work, proxy, timeoutMs: 300000 });
+    if (last.ok || i === attempts || !CONN_ERR.test(last.message || '')) return last;
+    if (onRetry) onRetry(i);
+    await sleep(i * 2000);
+  }
+  return last;
+}
+
 /**
  * 让工作副本「能跟 origin 说话」，但不改它的历史。
  *
@@ -301,8 +324,8 @@ export async function workIsDirty(work) {
 }
 
 /** 远端 main 的 sha（不下载对象，很快） */
-export async function remoteHead({ work, branch = 'main', proxy = '' }) {
-  const r = await git(['ls-remote', 'origin', `refs/heads/${branch}`], { cwd: work, proxy, timeoutMs: 30000 });
+export async function remoteHead({ work, branch = 'main', proxy = '', timeoutMs = 30000 }) {
+  const r = await git(['ls-remote', 'origin', `refs/heads/${branch}`], { cwd: work, proxy, timeoutMs });
   if (!r.ok) return { ok: false, sha: '', message: r.message };
   const sha = (r.stdout.trim().split(/\s+/)[0] || '');
   return { ok: true, sha };
@@ -529,7 +552,7 @@ export async function pushAll({
   const before = await localHead(work);
 
   step('推送到远端…');
-  let p = await git(['push', '-q', '-u', 'origin', branch], { cwd: work, proxy, timeoutMs: 300000 });
+  let p = await pushWithRetry(work, branch, proxy, 3, (i) => step(`第 ${i} 次没连上，${i * 2} 秒后重试…`));
   let merged = false;
   let incoming = [];
   let back = null;
@@ -574,7 +597,7 @@ export async function pushAll({
     back = await writeDataBack({ work, project, assets });
 
     step('再次推送到远端…');
-    p = await git(['push', '-q', '-u', 'origin', branch], { cwd: work, proxy, timeoutMs: 300000 });
+    p = await pushWithRetry(work, branch, proxy, 2);
   }
 
   if (!p.ok) {
@@ -729,7 +752,9 @@ export async function checkStatus({
   }
 
   const local = await localHead(work);
-  const rh = await remoteHead({ work, branch, proxy });
+  // 只等 12 秒（默认 30 秒太久了）：这个接口一分钟轮询一次，这次没连上下次就补上了。
+  // 与其让面板一直转，不如快点说「这次没连上」。真正值得重试的是 push。
+  const rh = await remoteHead({ work, branch, proxy, timeoutMs: 12000 });
 
   if (!rh.ok) {
     return {
