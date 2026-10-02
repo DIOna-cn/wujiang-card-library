@@ -26,6 +26,11 @@ const APPLY = argv.includes('--apply');
 const SKIP_SHAP = argv.includes('--skip-shap');
 const DIR = path.resolve(argOf('--dir', path.resolve(PROJECT, '..', '素材')));
 
+/** 改之前先把原文件备份一份（默认开；--no-backup 可关，备份放在不进仓库的 .data 下） */
+const BACKUP_DIR = argv.includes('--no-backup')
+  ? ''
+  : path.resolve(argOf('--backup-dir', path.resolve(PROJECT, '.data', 'b标签清理备份')));
+
 /** 只碰这些扩展名 */
 const TEXT_EXT = /\.(json|txt|shap|md)$/i;
 
@@ -85,6 +90,11 @@ for (const abs of files) {
   totalClose += c;
   touched++;
   if (APPLY) {
+    if (BACKUP_DIR) {
+      const dest = path.join(BACKUP_DIR, ...rel.split('/'));
+      await fsp.mkdir(path.dirname(dest), { recursive: true });
+      await fsp.copyFile(abs, dest);
+    }
     const out = stripBuf(stripBuf(buf, OPEN), CLOSE);
     await fsp.writeFile(abs, out);
     delta += out.length - buf.length;
@@ -108,5 +118,8 @@ for (const [k, v] of Object.entries(byKind)) {
 }
 console.log('');
 console.log(`涉及文件 ${touched} 个；<b> ${totalOpen} 处，</b> ${totalClose} 处，共 ${totalOpen + totalClose} 处`);
-if (APPLY) console.log(`\n已修改，文件合计减少 ${Math.abs(delta)} 字节。`);
+if (APPLY) {
+  console.log(`\n已修改，文件合计减少 ${Math.abs(delta)} 字节。`);
+  if (BACKUP_DIR) console.log(`改前的原文件已备份到：${BACKUP_DIR}`);
+}
 else console.log('\n这只是预览，没有改动任何文件。确认后加 --apply 执行。');
